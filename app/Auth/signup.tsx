@@ -1,65 +1,291 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Text, ActivityIndicator } from 'react-native';
+import { View, TextInput, Text, ActivityIndicator, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { router } from 'expo-router';
 import { auth } from '../../config/firebaseconfig';
+import { useColorScheme } from 'react-native';
 
 const Signup = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [emailFocus, setEmailFocus] = useState(false);
+  const [passwordFocus, setPasswordFocus] = useState(false);
+  const [confirmFocus, setConfirmFocus] = useState(false);
+  
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  // Color configurations
+  const colors = {
+    primary: '#4361ee',
+    background: isDark ? '#121212' : '#f8f9fa',
+    cardBackground: isDark ? '#1E1E1E' : '#FFFFFF',
+    text: isDark ? '#FFFFFF' : '#2B2D42',
+    inputBorder: isDark ? '#333333' : '#E0E0E0',
+    placeholder: isDark ? '#666666' : '#999999',
+    errorBackground: isDark ? '#2D0B0B' : '#FEE2E2',
+    errorText: isDark ? '#EF4444' : '#DC2626',
+  };
 
   const validateEmail = (email) => /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email);
 
   const handleSignup = async () => {
+    setError('');
+    
     if (!validateEmail(email)) {
-      setError('Invalid email format');
+      setError('Please enter a valid email address');
       return;
     }
+    
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
 
     setLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      router.replace('/inside/Home');
+      router.replace('Auth/form-ai');
     } catch (error) {
-      setError(error.message);
+      setError(error.message.replace('Firebase: ', ''));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', padding: 20 }}>
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        style={{ marginBottom: 10, padding: 10, borderWidth: 1 }}
-      />
-      <TextInput
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={{ marginBottom: 10, padding: 10, borderWidth: 1 }}
-      />
-      {error ? <Text style={{ color: 'red', marginBottom: 10 }}>{error}</Text> : null}
-      {loading ? (
-        <ActivityIndicator size="large" />
-      ) : (
-        <Button title="Sign Up" onPress={handleSignup} />
-      )}
-      <Button
-        title="Back to Login"
-        onPress={() => router.push('/Auth/login')}
-      />
-    </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1, backgroundColor: colors.background }}
+    >
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <View style={{ 
+          flex: 1, 
+          padding: 24,
+          maxWidth: 500,
+          width: '100%',
+          alignSelf: 'center'
+        }}>
+          {/* Header Section */}
+          <View style={{ alignItems: 'center', marginVertical: 40 }}>
+            <Ionicons 
+              name="person-add" 
+              size={60} 
+              color={colors.primary} 
+              style={{ marginBottom: 20 }}
+            />
+            <Text style={{
+              fontSize: 28,
+              fontWeight: '800',
+              color: colors.text,
+              marginBottom: 8
+            }}>
+              Create Account
+            </Text>
+            <Text style={{
+              fontSize: 16,
+              color: colors.placeholder,
+              textAlign: 'center'
+            }}>
+              Start your personalized learning journey
+            </Text>
+          </View>
+
+          {/* Form Section */}
+          <View style={{ marginBottom: 24 }}>
+            {/* Email Input */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.cardBackground,
+              borderRadius: 12,
+              paddingHorizontal: 16,
+              marginBottom: 16,
+              borderWidth: 2,
+              borderColor: emailFocus ? colors.primary : colors.inputBorder
+            }}>
+              <Ionicons 
+                name="mail-outline" 
+                size={20} 
+                color={emailFocus ? colors.primary : colors.placeholder} 
+                style={{ marginRight: 12 }}
+              />
+              <TextInput
+                placeholder="Email address"
+                placeholderTextColor={colors.placeholder}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                style={{
+                  flex: 1,
+                  height: 56,
+                  color: colors.text,
+                  fontSize: 16,
+                }}
+                onFocus={() => setEmailFocus(true)}
+                onBlur={() => setEmailFocus(false)}
+                keyboardType="email-address"
+              />
+            </View>
+
+            {/* Password Input */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.cardBackground,
+              borderRadius: 12,
+              paddingHorizontal: 16,
+              marginBottom: 16,
+              borderWidth: 2,
+              borderColor: passwordFocus ? colors.primary : colors.inputBorder
+            }}>
+              <Ionicons 
+                name="lock-closed-outline" 
+                size={20} 
+                color={passwordFocus ? colors.primary : colors.placeholder} 
+                style={{ marginRight: 12 }}
+              />
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor={colors.placeholder}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                style={{
+                  flex: 1,
+                  height: 56,
+                  color: colors.text,
+                  fontSize: 16,
+                }}
+                onFocus={() => setPasswordFocus(true)}
+                onBlur={() => setPasswordFocus(false)}
+              />
+            </View>
+
+            {/* Confirm Password Input */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.cardBackground,
+              borderRadius: 12,
+              paddingHorizontal: 16,
+              marginBottom: 24,
+              borderWidth: 2,
+              borderColor: confirmFocus ? colors.primary : colors.inputBorder
+            }}>
+              <Ionicons 
+                name="lock-closed-outline" 
+                size={20} 
+                color={confirmFocus ? colors.primary : colors.placeholder} 
+                style={{ marginRight: 12 }}
+              />
+              <TextInput
+                placeholder="Confirm Password"
+                placeholderTextColor={colors.placeholder}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                style={{
+                  flex: 1,
+                  height: 56,
+                  color: colors.text,
+                  fontSize: 16,
+                }}
+                onFocus={() => setConfirmFocus(true)}
+                onBlur={() => setConfirmFocus(false)}
+              />
+            </View>
+
+            {/* Error Message */}
+            {error ? (
+              <View style={{
+                backgroundColor: colors.errorBackground,
+                padding: 16,
+                borderRadius: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 16
+              }}>
+                <Ionicons 
+                  name="alert-circle" 
+                  size={20} 
+                  color={colors.errorText} 
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={{ 
+                  color: colors.errorText,
+                  fontSize: 14,
+                  flex: 1
+                }}>
+                  {error}
+                </Text>
+              </View>
+            ) : null}
+
+            {/* Sign Up Button */}
+            <TouchableOpacity
+              onPress={handleSignup}
+              disabled={loading}
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 12,
+                height: 56,
+                justifyContent: 'center',
+                alignItems: 'center',
+                shadowColor: colors.primary,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 3
+              }}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={{
+                  color: '#FFFFFF',
+                  fontSize: 16,
+                  fontWeight: '600'
+                }}>
+                  Create Account
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Existing User Section */}
+            <View style={{ 
+              flexDirection: 'row', 
+              justifyContent: 'center', 
+              marginTop: 24 
+            }}>
+              <Text style={{ 
+                color: colors.placeholder,
+                marginRight: 4 
+              }}>
+                Already have an account?
+              </Text>
+              <TouchableOpacity onPress={() => router.push('/Auth/login')}>
+                <Text style={{ 
+                  color: colors.primary,
+                  fontWeight: '600'
+                }}>
+                  Sign In
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 

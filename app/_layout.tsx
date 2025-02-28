@@ -9,7 +9,11 @@ export default function RootLayout() {
       <Stack.Screen name="Auth/forgot-password" />
       <Stack.Screen name="Auth/signup" />
       <Stack.Screen name="Auth/form-ai" />
-      <Stack.Screen name="inside/Home" />
+      <Stack.Screen name="inside/Home" /> 
+      <Stack.Screen name="inside/profile" />
+      <Stack.Screen name="inside/create-session" />
+
+      
     </Stack>
   );
 }

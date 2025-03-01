@@ -12,7 +12,12 @@ export default function RootLayout() {
       <Stack.Screen name="inside/Home" /> 
       <Stack.Screen name="inside/profile" />
       <Stack.Screen name="inside/create-session" />
+      <Stack.Screen name="inside/progress" />
+      <Stack.Screen name="/inside/ai-pages" />
 
+      
+
+    
       
     </Stack>
   );

@@ -13,6 +13,7 @@ export default function RootLayout() {
       <Stack.Screen name="inside/profile" />
       <Stack.Screen name="inside/create-session" />
       <Stack.Screen name="inside/progress" />
+      <Stack.Screen name="settings" />
       <Stack.Screen name="/inside/ai-pages" />
       <Stack.Screen name="/inside/recent-activities" />
       <Stack.Screen name="/inside/progress/Mathematics" />

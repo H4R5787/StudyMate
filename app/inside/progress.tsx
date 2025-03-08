@@ -305,7 +305,6 @@
 // };
 
 // export default ProgressPage;
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -313,12 +312,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  StyleSheet
+  StyleSheet,
+  FlatList
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import { router } from 'expo-router';
-import { LineChart, BarChart } from 'react-native-chart-kit';
+import { LineChart, BarChart, ProgressChart } from 'react-native-chart-kit';
 import Animated, { useSharedValue, withSpring } from 'react-native-reanimated';
 
 const ProgressPage = () => {
@@ -344,15 +344,41 @@ const ProgressPage = () => {
   };
 
   const subjects = [
-    { name: 'Mathematics', time: 45, progress: 75, color: '#FF6B6B' },
-    { name: 'Physics', time: 32, progress: 60, color: '#4ECDC4' },
-    { name: 'Chemistry', time: 28, progress: 45, color: '#45B7D1' },
-    { name: 'Biology', time: 18, progress: 30, color: '#96CEB4' },
+    { name: 'Mathematics', time: 45, progress: 0.75, color: '#FF6B6B' },
+    { name: 'Physics', time: 32, progress: 0.6, color: '#4ECDC4' },
+    { name: 'Chemistry', time: 28, progress: 0.45, color: '#45B7D1' },
+    { name: 'Biology', time: 18, progress: 0.3, color: '#96CEB4' },
+  ];
+
+  const sessionHistory = [
+    { id: '1', subject: 'Mathematics', duration: '45 mins', date: '2023-08-20' },
+    { id: '2', subject: 'Physics', duration: '1h 30m', date: '2023-08-19' },
+    { id: '3', subject: 'Chemistry', duration: '30 mins', date: '2023-08-18' },
   ];
 
   useEffect(() => {
     progress.value = withSpring(1, { damping: 10 });
   }, []);
+
+  const renderSubject = ({ item }) => (
+    <View style={[styles.subjectCard, { backgroundColor: colors.cardBackground }]}>
+      <View style={styles.subjectHeader}>
+        <Text style={[styles.subjectTitle, { color: colors.text }]}>{item.name}</Text>
+        <Text style={[styles.subjectTime, { color: colors.primary }]}>{item.time}h</Text>
+      </View>
+      <View style={styles.progressBar}>
+        <Animated.View 
+          style={[
+            styles.progressFill,
+            { 
+              width: `${item.progress * 100}%`,
+              backgroundColor: item.color
+            }
+          ]}
+        />
+      </View>
+    </View>
+  );
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -364,6 +390,7 @@ const ProgressPage = () => {
           </TouchableOpacity>
         </View>
 
+        {/* Time Range Selector */}
         <View style={styles.rangeSelector}>
           {['week', 'month', 'year'].map((range) => (
             <TouchableOpacity
@@ -378,23 +405,97 @@ const ProgressPage = () => {
           ))}
         </View>
 
+        {/* Study Hours Line Chart */}
         <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Study Hours</Text>
           <LineChart
             data={{
-              labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+              labels: timeRange === 'week' 
+                ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                : timeRange === 'month' 
+                ? Array.from({length: 12}, (_, i) => `W${i+1}`)
+                : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
               datasets: [{ data: studyData[timeRange] }]
             }}
             width={Dimensions.get('window').width - 64}
             height={220}
             chartConfig={{
               backgroundColor: colors.cardBackground,
+              backgroundGradientFrom: colors.cardBackground,
+              backgroundGradientTo: colors.cardBackground,
+              decimalPlaces: 1,
               color: () => colors.primary,
               labelColor: () => colors.chartText,
+              propsForDots: {
+                r: "4",
+                strokeWidth: "2",
+                stroke: colors.primary
+              }
             }}
             bezier
             style={{ marginVertical: 8, borderRadius: 16 }}
           />
+        </View>
+
+        {/* Subject Distribution Bar Chart */}
+        <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Subject Distribution</Text>
+          <BarChart
+            data={{
+              labels: subjects.map(s => s.name),
+              datasets: [{
+                data: subjects.map(s => s.time)
+              }]
+            }}
+            width={Dimensions.get('window').width - 64}
+            height={220}
+            yAxisSuffix="h"
+            chartConfig={{
+              backgroundColor: colors.cardBackground,
+              backgroundGradientFrom: colors.cardBackground,
+              backgroundGradientTo: colors.cardBackground,
+              color: (opacity = 1) => `rgba(67, 97, 238, ${opacity})`,
+              labelColor: () => colors.chartText,
+              barPercentage: 0.5,
+            }}
+            style={{ marginVertical: 8, borderRadius: 16 }}
+            fromZero
+          />
+        </View>
+
+        {/* Subject Progress */}
+        <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Subject Progress</Text>
+          <FlatList
+            data={subjects}
+            renderItem={renderSubject}
+            keyExtractor={item => item.name}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.subjectList}
+          />
+        </View>
+
+        {/* Recent Sessions */}
+        <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Recent Sessions</Text>
+          {sessionHistory.map(session => (
+            <TouchableOpacity 
+              key={session.id} 
+              style={[styles.sessionItem, { borderBottomColor: colors.border }]}
+              onPress={() => router.push(`/session/${session.id}`)}
+            >
+              <View style={styles.sessionInfo}>
+                <Text style={[styles.sessionSubject, { color: colors.text }]}>
+                  {session.subject}
+                </Text>
+                <Text style={{ color: colors.secondaryText }}>{session.duration}</Text>
+              </View>
+              <Text style={{ color: colors.secondaryText }}>
+                {new Date(session.date).toLocaleDateString()}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
     </ScrollView>
@@ -444,6 +545,55 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 16
+  },
+  subjectCard: {
+    width: 200,
+    padding: 16,
+    borderRadius: 12,
+    marginRight: 16,
+    borderWidth: 1
+  },
+  subjectHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8
+  },
+  subjectTitle: {
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  subjectTime: {
+    fontSize: 14,
+    fontWeight: '700'
+  },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E0E0E0',
+    overflow: 'hidden'
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4
+  },
+  subjectList: {
+    paddingBottom: 8
+  },
+  sessionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1
+  },
+  sessionInfo: {
+    flex: 1,
+    marginRight: 16
+  },
+  sessionSubject: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 4
   }
 });
 

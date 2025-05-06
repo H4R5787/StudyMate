@@ -1,5 +1,3 @@
-// AIzaSyB30fk258h-X8xEojAk8HCevUU405EqDRk
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -25,7 +23,7 @@ const AIPage = () => {
   const [error, setError] = useState('');
   const [hasScrolled, setHasScrolled] = useState(false);
 
-  const API_KEY = 'AIzaSyB30fk258h-X8xEojAk8HCevUU405EqDRk';
+  const API_KEY = '';
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
 
   // Color theme configuration

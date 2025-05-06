@@ -24,13 +24,6 @@ export default function RootLayout() {
       <Stack.Screen name="/inside/activity/2" />
       <Stack.Screen name="/inside/activity/3" />
       <Stack.Screen name="/inside/activity/4" />
-
-      
-
-      
-
-    
-      
     </Stack>
   );
 }

@@ -1,238 +1,324 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SectionList } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  SectionList,
+  StyleSheet,
+  useColorScheme,
+  SafeAreaView,
+} from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { Colors } from '../../constants/theme';
+import { AppHeader } from '../../components/AppHeader';
 
-const RecentActivities = () => {
+interface ActivityItem {
+  id: string;
+  routeId: string;
+  title: string;
+  duration: string;
+  type: string;
+  score?: string;
+  status: 'completed' | 'in_progress';
+}
+
+interface ActivitySection {
+  date: string;
+  data: ActivityItem[];
+}
+
+const ALL_ACTIVITIES: ActivitySection[] = [
+  {
+    date: '2026-09-28',
+    data: [
+      { id: '1', routeId: '1', title: 'Mathematics Mastery Quiz', duration: '15 mins', type: 'Mathematics', score: '5/5', status: 'completed' },
+      { id: '2', routeId: '2', title: 'Physics Mechanics: Chapter 2', duration: '35 mins', type: 'Physics', score: '100%', status: 'completed' },
+    ],
+  },
+  {
+    date: '2026-09-27',
+    data: [
+      { id: '3', routeId: '3', title: 'Chemistry Stoichiometry Drill', duration: '20 mins', type: 'Chemistry', score: '4/5', status: 'completed' },
+      { id: '4', routeId: '4', title: 'Cell Biology & Mitosis Test', duration: '25 mins', type: 'Biology', score: '5/5', status: 'completed' },
+    ],
+  },
+  {
+    date: '2026-09-25',
+    data: [
+      { id: '5', routeId: '1', title: 'Calculus Derivatives & Integrals', duration: '30 mins', type: 'Mathematics', score: '4/5', status: 'completed' },
+      { id: '6', routeId: '3', title: 'Organic Chemistry & Bonding', duration: '25 mins', type: 'Chemistry', score: '3/5', status: 'completed' },
+    ],
+  },
+];
+
+export default function RecentActivities() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const colors = isDark ? Colors.dark : Colors.light;
+
   const [selectedFilter, setSelectedFilter] = useState('all');
 
-  const colors = {
-    primary: '#4361ee',
-    background: isDark ? '#121212' : '#f8f9fa',
-    cardBackground: isDark ? '#1E1E1E' : '#FFFFFF',
-    text: isDark ? '#FFFFFF' : '#2B2D42',
-    secondaryText: isDark ? '#A0A0A0' : '#4A4E69',
-    border: isDark ? '#333333' : '#E0E0E0',
-  };
-
-  // Sample data - replace with real data
-  const allActivities = [
-    { 
-      date: '2023-08-20',
-      data: [
-        { id: '1', title: 'Mathematics Quiz', duration: '45 mins', type: 'Mathematics' },
-        { id: '2', title: 'Physics Chapter 2', duration: '1h 30m', type: 'Physics' },
-      ]
-    },
-    { 
-      date: '2023-08-19',
-      data: [
-        { id: '3', title: 'Chemistry Test', duration: '30 mins', type: 'Chemistry' },
-        { id: '4', title: 'Biology Test', duration: '30 mins', type: 'Biology' },
-      ]
-    },
-    { 
-      date: '2023-08-18',
-      data: [
-        { id: '5', title: 'Algebra Basics', duration: '45 mins', type: 'Mathematics' },
-        { id: '6', title: 'Organic Chemistry', duration: '1h 15m', type: 'Chemistry' },
-      ]
-    },
-  ];
-
   const filters = [
-    { id: 'all', label: 'All' },
+    { id: 'all', label: 'All Courses' },
     { id: 'Mathematics', label: 'Math' },
     { id: 'Physics', label: 'Physics' },
     { id: 'Chemistry', label: 'Chemistry' },
     { id: 'Biology', label: 'Biology' },
   ];
 
-  const filteredActivities = allActivities
-    .map(section => ({
-      ...section,
-      data: section.data.filter(activity => 
-        selectedFilter === 'all' || activity.type === selectedFilter
-      )
-    }))
-    .filter(section => section.data.length > 0);
+  const getSubjectColor = (type: string) => {
+    switch (type) {
+      case 'Mathematics':
+        return '#4361ee';
+      case 'Physics':
+        return '#06d6a0';
+      case 'Chemistry':
+        return '#f72585';
+      case 'Biology':
+        return '#ffb703';
+      default:
+        return colors.primary;
+    }
+  };
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity 
-      onPress={() => router.push({
-        pathname: '/inside/activity/[id]',
-        params: { ...item }
-      })}
-    >
-      <View style={[styles.activityItem, { borderBottomColor: colors.border }]}>
-        <View style={styles.activityContent}>
-          <Text style={[styles.activityTitle, { color: colors.text }]}>{item.title}</Text>
-          <Text style={{ color: colors.secondaryText }}>{item.duration}</Text>
-        </View>
-        <View style={styles.activityType}>
-          <Ionicons 
-            name="book" 
-            size={16} 
-            color={colors.primary} 
-            style={styles.typeIcon} 
-          />
-          <Text style={[styles.typeText, { color: colors.primary }]}>
-            {item.type}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+  const filteredSections = ALL_ACTIVITIES.map((section) => ({
+    ...section,
+    data: section.data.filter(
+      (item) => selectedFilter === 'all' || item.type === selectedFilter
+    ),
+  })).filter((section) => section.data.length > 0);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.cardBackground }]}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Recent Activities</Text>
-        <View style={{ width: 24 }} /> {/* Spacer */}
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <AppHeader
+        title="Study History"
+        subtitle="Review completed quizzes and reading sessions"
+      />
+
+      {/* Filter Horizontal Scroll */}
+      <View style={styles.filterWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroll}
+        >
+          {filters.map((filter) => {
+            const isSelected = filter.id === selectedFilter;
+            return (
+              <TouchableOpacity
+                key={filter.id}
+                onPress={() => setSelectedFilter(filter.id)}
+                style={[
+                  styles.filterPill,
+                  {
+                    backgroundColor: isSelected ? colors.primary : colors.cardBackground,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    { color: isSelected ? '#ffffff' : colors.text },
+                  ]}
+                >
+                  {filter.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
-      {/* Filter Bar */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterContainer}
-      >
-        {filters.map(filter => (
-          <TouchableOpacity
-            key={filter.id}
-            onPress={() => setSelectedFilter(filter.id)}
-            style={[
-              styles.filterButton,
-              { 
-                backgroundColor: filter.id === selectedFilter ? colors.primary : colors.cardBackground,
-                borderColor: colors.border
-              }
-            ]}
-          >
-            <Text style={[
-              styles.filterText,
-              { color: filter.id === selectedFilter ? colors.cardBackground : colors.text }
-            ]}>
-              {filter.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Activities List */}
+      {/* Activities Section List */}
       <SectionList
-        sections={filteredActivities}
-        keyExtractor={item => item.id}
-        renderItem={renderItem}
+        sections={filteredSections}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         renderSectionHeader={({ section: { date } }) => (
-          <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
-            <Text style={[styles.sectionDate, { color: colors.secondaryText }]}>
-              {new Date(date).toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                month: 'short', 
-                day: 'numeric' 
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionDateText, { color: colors.secondaryText }]}>
+              {new Date(date).toLocaleDateString(undefined, {
+                weekday: 'long',
+                month: 'short',
+                day: 'numeric',
               })}
             </Text>
           </View>
         )}
-        contentContainerStyle={styles.listContainer}
+        renderItem={({ item }) => {
+          const subjectColor = getSubjectColor(item.type);
+          return (
+            <TouchableOpacity
+              onPress={() => router.push(`/inside/activity/${item.routeId}` as any)}
+              style={[
+                styles.activityCard,
+                { backgroundColor: colors.cardBackground, borderColor: colors.border },
+              ]}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.typeIconBox, { backgroundColor: subjectColor + '18' }]}>
+                <Ionicons name="school-outline" size={20} color={subjectColor} />
+              </View>
+
+              <View style={styles.activityInfo}>
+                <Text style={[styles.activityTitle, { color: colors.text }]} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <View style={styles.metaRow}>
+                  <Text style={[styles.metaSubject, { color: subjectColor }]}>{item.type}</Text>
+                  <Text style={[styles.metaDot, { color: colors.secondaryText }]}>•</Text>
+                  <Text style={[styles.metaDuration, { color: colors.secondaryText }]}>{item.duration}</Text>
+                </View>
+              </View>
+
+              <View style={styles.scoreBox}>
+                {item.score && (
+                  <View style={[styles.scoreBadge, { backgroundColor: colors.surface }]}>
+                    <Text style={[styles.scoreText, { color: colors.text }]}>{item.score}</Text>
+                  </View>
+                )}
+                <Ionicons name="arrow-forward" size={16} color={colors.secondaryText} />
+              </View>
+            </TouchableOpacity>
+          );
+        }}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="calendar" size={48} color={colors.secondaryText} />
-            <Text style={[styles.emptyText, { color: colors.secondaryText }]}>
-              No activities found
+          <View style={styles.emptyContainer}>
+            <View style={[styles.emptyIconBox, { backgroundColor: colors.surface }]}>
+              <Ionicons name="file-tray-outline" size={36} color={colors.secondaryText} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No Activities Found</Text>
+            <Text style={[styles.emptySub, { color: colors.secondaryText }]}>
+              There are no recorded sessions for this filter category yet.
             </Text>
           </View>
         }
       />
-    </View>
+    </SafeAreaView>
   );
-};
+}
 
-const styles = {
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    marginBottom: 8
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700'
+  filterWrapper: {
+    paddingVertical: 12,
   },
-  filterContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8
+  filterScroll: {
+    paddingHorizontal: 20,
+    gap: 8,
   },
-  filterButton: {
+  filterPill: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 1
+    borderWidth: 1,
   },
   filterText: {
-    fontSize: 14,
-    fontWeight: '500'
+    fontSize: 13,
+    fontWeight: '600',
   },
-  listContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 80
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   sectionHeader: {
     paddingVertical: 8,
-    marginTop: 16
+    marginTop: 12,
+    marginBottom: 4,
   },
-  sectionDate: {
-    fontSize: 14,
-    fontWeight: '500',
-    textTransform: 'uppercase'
+  sectionDateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
-  activityItem: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+  activityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
-    marginVertical: 4,
-    borderBottomWidth: 1
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 10,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
   },
-  activityContent: {
-    marginBottom: 8
+  typeIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  activityInfo: {
+    flex: 1,
   },
   activityTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
   },
-  activityType: {
+  metaRow: {
     flexDirection: 'row',
-    alignItems: 'center'
-  },
-  typeIcon: {
-    marginRight: 4
-  },
-  typeText: {
-    fontSize: 14,
-    fontWeight: '500'
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 40
   },
-  emptyText: {
-    fontSize: 16,
-    marginTop: 16
-  }
-};
-
-export default RecentActivities;
+  metaSubject: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  metaDot: {
+    marginHorizontal: 6,
+    fontSize: 12,
+  },
+  metaDuration: {
+    fontSize: 12,
+  },
+  scoreBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  scoreBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  scoreText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyIconBox: {
+    width: 68,
+    height: 68,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  emptySub: {
+    fontSize: 13,
+    textAlign: 'center',
+    maxWidth: 260,
+  },
+});

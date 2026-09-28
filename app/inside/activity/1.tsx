@@ -1,67 +1,87 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Animated,
+  StyleSheet,
+  useColorScheme,
+  SafeAreaView,
+} from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { Colors } from '../../../constants/theme';
+import { AppHeader } from '../../../components/AppHeader';
 
-const MathematicsQuiz = () => {
+interface Question {
+  id: string;
+  question: string;
+  options: string[];
+  correctAnswer: string;
+  explanation: string;
+}
+
+const MATH_QUESTIONS: Question[] = [
+  {
+    id: '1',
+    question: 'What is the value of π (pi) rounded to two decimal places?',
+    options: ['3.14', '3.16', '3.12', '3.18'],
+    correctAnswer: '3.14',
+    explanation: 'π is an irrational constant representing the ratio of a circle\'s circumference to its diameter, approximately 3.14159...',
+  },
+  {
+    id: '2',
+    question: 'Solve for x: 2x + 5 = 15',
+    options: ['5', '10', '7.5', '2.5'],
+    correctAnswer: '5',
+    explanation: 'Subtract 5 from both sides: 2x = 10, then divide by 2: x = 5.',
+  },
+  {
+    id: '3',
+    question: 'What is the area of a rectangle with length 8 cm and width 5 cm?',
+    options: ['13 cm²', '40 cm²', '26 cm²', '30 cm²'],
+    correctAnswer: '40 cm²',
+    explanation: 'Area of a rectangle = length × width = 8 × 5 = 40 cm².',
+  },
+  {
+    id: '4',
+    question: 'Calculate 7² + 3³',
+    options: ['76', '85', '49', '58'],
+    correctAnswer: '76',
+    explanation: '7² = 49 and 3³ = 27. 49 + 27 = 76.',
+  },
+  {
+    id: '5',
+    question: 'What is the square root of 144?',
+    options: ['12', '14', '16', '18'],
+    correctAnswer: '12',
+    explanation: '12 × 12 = 144, so √144 = 12.',
+  },
+];
+
+export default function MathematicsQuiz() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const colors = isDark ? Colors.dark : Colors.light;
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [score, setScore] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes in seconds
+  const [timeRemaining, setTimeRemaining] = useState(300); // 5 mins
   const [showResults, setShowResults] = useState(false);
-  const progress = new Animated.Value(0);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const colors = {
-    primary: '#4361ee',
-    correct: '#4CAF50',
-    incorrect: '#F44336',
-    background: isDark ? '#121212' : '#f8f9fa',
-    cardBackground: isDark ? '#1E1E1E' : '#FFFFFF',
-    text: isDark ? '#FFFFFF' : '#2B2D42',
-    secondaryText: isDark ? '#A0A0A0' : '#4A4E69',
-    border: isDark ? '#333333' : '#E0E0E0',
-  };
-
-  const mathQuestions = [
-    {
-      id: '1',
-      question: 'What is the value of π (pi) rounded to two decimal places?',
-      options: ['3.14', '3.16', '3.12', '3.18'],
-      correctAnswer: '3.14'
-    },
-    {
-      id: '2',
-      question: 'Solve for x: 2x + 5 = 15',
-      options: ['5', '10', '7.5', '2.5'],
-      correctAnswer: '5'
-    },
-    {
-      id: '3',
-      question: 'What is the area of a rectangle with length 8 and width 5?',
-      options: ['13', '40', '26', '30'],
-      correctAnswer: '40'
-    },
-    {
-      id: '4',
-      question: 'Calculate 7² + 3³',
-      options: ['76', '85', '49', '58'],
-      correctAnswer: '76'
-    },
-    {
-      id: '5',
-      question: 'What is the square root of 144?',
-      options: ['12', '14', '16', '18'],
-      correctAnswer: '12'
-    }
-  ];
+  const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (showResults) return;
     const timer = setInterval(() => {
-      setTimeRemaining(prev => {
+      setTimeRemaining((prev) => {
         if (prev <= 1) {
-          handleTimeUp();
+          clearInterval(timer);
+          finishQuiz();
           return 0;
         }
         return prev - 1;
@@ -69,198 +89,442 @@ const MathematicsQuiz = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [showResults]);
 
-  Animated.timing(progress, {
-    toValue: (currentQuestionIndex + 1) / mathQuestions.length,
-    duration: 500,
-    useNativeDriver: false
-  }).start();
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: (currentIndex + 1) / MATH_QUESTIONS.length,
+      duration: 350,
+      useNativeDriver: false,
+    }).start();
+  }, [currentIndex]);
 
-  const handleAnswer = (selectedAnswer: string) => {
-    if (selectedAnswer === mathQuestions[currentQuestionIndex].correctAnswer) {
-      setScore(prev => prev + 1);
-    }
+  const handleSelectOption = (option: string) => {
+    if (isSubmitted) return;
+    setSelectedAnswers((prev) => ({ ...prev, [currentIndex]: option }));
+  };
 
-    if (currentQuestionIndex < mathQuestions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+  const handleNext = () => {
+    if (currentIndex < MATH_QUESTIONS.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
     } else {
-      setShowResults(true);
+      finishQuiz();
     }
   };
 
-  const handleTimeUp = () => {
+  const finishQuiz = () => {
+    let finalScore = 0;
+    MATH_QUESTIONS.forEach((q, idx) => {
+      if (selectedAnswers[idx] === q.correctAnswer) {
+        finalScore += 1;
+      }
+    });
+    setScore(finalScore);
     setShowResults(true);
+    setIsSubmitted(true);
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const restartQuiz = () => {
+    setCurrentIndex(0);
+    setSelectedAnswers({});
+    setScore(0);
+    setTimeRemaining(300);
+    setShowResults(false);
+    setIsSubmitted(false);
   };
 
-  const progressWidth = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%']
-  });
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const currentQ = MATH_QUESTIONS[currentIndex];
+  const userSelected = selectedAnswers[currentIndex];
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.cardBackground }]}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={[styles.timerText, { color: colors.primary }]}>
-          {formatTime(timeRemaining)}
-        </Text>
-        <Text style={[styles.scoreText, { color: colors.text }]}>
-          Score: {score}
-        </Text>
-      </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <AppHeader
+        title="Mathematics Quiz"
+        subtitle={showResults ? "Results & Review" : `Question ${currentIndex + 1} of ${MATH_QUESTIONS.length}`}
+      />
 
-      {/* Progress Bar */}
-      <View style={styles.progressBarContainer}>
-        <Animated.View style={[
-          styles.progressBar,
-          { width: progressWidth, backgroundColor: colors.primary }
-        ]} />
-      </View>
+      {/* Progress Bar & Timer Header */}
+      {!showResults && (
+        <View style={[styles.quizSubHeader, { backgroundColor: colors.cardBackground, borderBottomColor: colors.border }]}>
+          <View style={styles.timerBadge}>
+            <Ionicons name="time-outline" size={16} color={colors.primary} />
+            <Text style={[styles.timerDigits, { color: colors.primary }]}>{formatTime(timeRemaining)}</Text>
+          </View>
 
-      {showResults ? (
-        <View style={styles.resultsContainer}>
-          <Ionicons name="trophy" size={64} color={colors.primary} />
-          <Text style={[styles.resultsTitle, { color: colors.text }]}>
-            Quiz Complete!
-          </Text>
-          <Text style={[styles.resultsText, { color: colors.text }]}>
-            You scored {score} out of {mathQuestions.length}
-          </Text>
-          <Text style={[styles.resultsText, { color: colors.text }]}>
-            Time Remaining: {formatTime(timeRemaining)}
-          </Text>
-          
-          <TouchableOpacity 
-            style={[styles.button, { backgroundColor: colors.primary }]}
-            onPress={() => {
-              setCurrentQuestionIndex(0);
-              setScore(0);
-              setTimeRemaining(300);
-              setShowResults(false);
-            }}
-          >
-            <Text style={[styles.buttonText, { color: colors.cardBackground }]}>
-              Try Again
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.button, { backgroundColor: colors.border }]}
-            onPress={() => router.push('/inside/Home')}
-          >
-            <Text style={[styles.buttonText, { color: colors.text }]}>
-              Return Home
-            </Text>
-          </TouchableOpacity>
+          <View style={[styles.progressTrack, { backgroundColor: colors.surface }]}>
+            <Animated.View
+              style={[
+                styles.progressBar,
+                {
+                  backgroundColor: colors.primary,
+                  width: progress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', '100%'],
+                  }),
+                },
+              ]}
+            />
+          </View>
         </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.container}>
-          <Text style={[styles.questionNumber, { color: colors.secondaryText }]}>
-            Question {currentQuestionIndex + 1} of {mathQuestions.length}
-          </Text>
-          <Text style={[styles.questionText, { color: colors.text }]}>
-            {mathQuestions[currentQuestionIndex].question}
-          </Text>
-
-          {mathQuestions[currentQuestionIndex].options.map((option, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[styles.optionButton, { backgroundColor: colors.cardBackground }]}
-              onPress={() => handleAnswer(option)}
-            >
-              <Text style={[styles.optionText, { color: colors.text }]}>{option}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       )}
-    </View>
-  );
-};
 
-const styles = {
-  header: {
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.mainContainer}>
+          {showResults ? (
+            /* Results Screen */
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <View style={styles.resultsHeader}>
+                <View style={[styles.trophyCircle, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="trophy" size={44} color={colors.primary} />
+                </View>
+                <Text style={[styles.resultsTitle, { color: colors.text }]}>Quiz Completed!</Text>
+                <Text style={[styles.resultsSub, { color: colors.secondaryText }]}>
+                  You scored {score} out of {MATH_QUESTIONS.length} ({Math.round((score / MATH_QUESTIONS.length) * 100)}%)
+                </Text>
+              </View>
+
+              {/* Explanations Review */}
+              <View style={styles.reviewSection}>
+                <Text style={[styles.reviewHeading, { color: colors.text }]}>Answers & Explanations</Text>
+                {MATH_QUESTIONS.map((q, idx) => {
+                  const wasCorrect = selectedAnswers[idx] === q.correctAnswer;
+                  return (
+                    <View
+                      key={q.id}
+                      style={[
+                        styles.reviewCard,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: wasCorrect ? Colors.light.success : colors.danger,
+                        },
+                      ]}
+                    >
+                      <View style={styles.reviewTopRow}>
+                        <Text style={[styles.reviewNumber, { color: colors.secondaryText }]}>#{idx + 1}</Text>
+                        <Text style={[styles.reviewQuestion, { color: colors.text }]}>{q.question}</Text>
+                        <Ionicons
+                          name={wasCorrect ? "checkmark-circle" : "close-circle"}
+                          size={20}
+                          color={wasCorrect ? Colors.light.success : colors.danger}
+                        />
+                      </View>
+
+                      <Text style={[styles.reviewAnswerText, { color: colors.secondaryText }]}>
+                        Your answer:{' '}
+                        <Text style={{ fontWeight: '700', color: wasCorrect ? Colors.light.success : colors.danger }}>
+                          {selectedAnswers[idx] || 'Not answered'}
+                        </Text>
+                      </Text>
+                      {!wasCorrect && (
+                        <Text style={[styles.reviewAnswerText, { color: colors.secondaryText }]}>
+                          Correct answer:{' '}
+                          <Text style={{ fontWeight: '700', color: Colors.light.success }}>
+                            {q.correctAnswer}
+                          </Text>
+                        </Text>
+                      )}
+                      <Text style={[styles.explanationText, { color: colors.secondaryText }]}>
+                        💡 {q.explanation}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                  onPress={restartQuiz}
+                >
+                  <Ionicons name="refresh" size={18} color="#ffffff" />
+                  <Text style={styles.primaryButtonText}>Try Again</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.secondaryButton, { borderColor: colors.border }]}
+                  onPress={() => router.replace('/inside/Home')}
+                >
+                  <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Return to Dashboard</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            /* Active Question Screen */
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <View style={styles.questionHeader}>
+                <Text style={[styles.questionCounter, { color: colors.primary }]}>
+                  QUESTION {currentIndex + 1}
+                </Text>
+                <Text style={[styles.questionTitle, { color: colors.text }]}>{currentQ.question}</Text>
+              </View>
+
+              <View style={styles.optionsList}>
+                {currentQ.options.map((option, idx) => {
+                  const isSelected = userSelected === option;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      onPress={() => handleSelectOption(option)}
+                      style={[
+                        styles.optionCard,
+                        {
+                          backgroundColor: isSelected ? colors.primaryLight : colors.surface,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                        },
+                      ]}
+                      activeOpacity={0.8}
+                    >
+                      <View
+                        style={[
+                          styles.optionPill,
+                          {
+                            backgroundColor: isSelected ? colors.primary : 'transparent',
+                            borderColor: isSelected ? colors.primary : colors.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.optionLetter,
+                            { color: isSelected ? '#ffffff' : colors.secondaryText },
+                          ]}
+                        >
+                          {String.fromCharCode(65 + idx)}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.optionLabel,
+                          { color: isSelected ? colors.primary : colors.text, fontWeight: isSelected ? '700' : '500' },
+                        ]}
+                      >
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <TouchableOpacity
+                onPress={handleNext}
+                disabled={!userSelected}
+                style={[
+                  styles.nextButton,
+                  {
+                    backgroundColor: userSelected ? colors.primary : colors.border,
+                    opacity: userSelected ? 1 : 0.6,
+                  },
+                ]}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.nextButtonText}>
+                  {currentIndex === MATH_QUESTIONS.length - 1 ? 'Submit Quiz' : 'Next Question'}
+                </Text>
+                <Ionicons name="arrow-forward" size={18} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  quizSubHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    marginBottom: 8
+    gap: 16,
   },
-  timerText: {
-    fontSize: 18,
-    fontWeight: '700'
+  timerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  scoreText: {
-    fontSize: 16,
-    fontWeight: '600'
+  timerDigits: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
-  progressBarContainer: {
-    height: 4,
-    backgroundColor: '#E0E0E0',
-    width: '100%'
+  progressTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
   },
   progressBar: {
-    height: '100%'
+    height: '100%',
+    borderRadius: 3,
   },
-  container: {
-    padding: 16,
-    paddingBottom: 80
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
-  questionNumber: {
-    fontSize: 16,
-    marginBottom: 8
+  mainContainer: {
+    maxWidth: 680,
+    width: '100%',
+    alignSelf: 'center',
   },
-  questionText: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 24
-  },
-  optionButton: {
-    padding: 16,
-    borderRadius: 8,
-    marginVertical: 8,
+  card: {
+    borderRadius: 20,
+    padding: 24,
     borderWidth: 1,
-    borderColor: '#E0E0E0'
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
   },
-  optionText: {
-    fontSize: 16
+  questionHeader: {
+    marginBottom: 24,
   },
-  resultsContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  questionCounter: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  questionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 28,
+  },
+  optionsList: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  optionCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 24
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    gap: 14,
+  },
+  optionPill: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionLetter: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  optionLabel: {
+    fontSize: 15,
+    flex: 1,
+  },
+  nextButton: {
+    height: 52,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  nextButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  resultsHeader: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  trophyCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   resultsTitle: {
-    fontSize: 28,
+    fontSize: 26,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  resultsSub: {
+    fontSize: 14,
+  },
+  reviewSection: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  reviewHeading: {
+    fontSize: 17,
     fontWeight: '700',
-    marginVertical: 16
+    marginBottom: 4,
   },
-  resultsText: {
-    fontSize: 18,
-    marginBottom: 8
-  },
-  button: {
+  reviewCard: {
     padding: 16,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-    marginVertical: 8
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 6,
   },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600'
-  }
-};
-
-export default MathematicsQuiz;
+  reviewTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reviewNumber: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  reviewQuestion: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  reviewAnswerText: {
+    fontSize: 13,
+  },
+  explanationText: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  actionButtons: {
+    gap: 12,
+  },
+  primaryButton: {
+    height: 52,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  secondaryButton: {
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+});

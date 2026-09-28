@@ -1,437 +1,775 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, FlatList, Animated, Image, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  FlatList,
+  Image,
+  StyleSheet,
+  useColorScheme,
+  SafeAreaView,
+  Platform,
+} from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from 'react-native';
-import { router, useRouter } from 'expo-router';
-import Reanimated, { useSharedValue, withSpring } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
+import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { Colors } from '../../constants/theme';
+import { BottomNav } from '../../components/BottomNav';
 
-const SubjectCard = ({ item, colors }) => {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+interface SubjectItem {
+  id: string;
+  name: string;
+  progress: number;
+  color: string;
+  image: any;
+  sessions: number;
+  totalHours: string;
+}
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }).start(() => {
-        setCurrentImageIndex((prev) => (prev + 1) % item.images.length);
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }).start();
-      });
-    }, 3000);
+const SUBJECTS: SubjectItem[] = [
+  {
+    id: 'Mathematics',
+    name: 'Mathematics',
+    progress: 75,
+    color: '#4361ee',
+    image: require('../../assets/images/math1.jpg'),
+    sessions: 14,
+    totalHours: '18.5h',
+  },
+  {
+    id: 'Physics',
+    name: 'Physics',
+    progress: 60,
+    color: '#06d6a0',
+    image: require('../../assets/images/physics.jpg'),
+    sessions: 10,
+    totalHours: '12.0h',
+  },
+  {
+    id: 'Chemistry',
+    name: 'Chemistry',
+    progress: 45,
+    color: '#f72585',
+    image: require('../../assets/images/maxresdefault.jpg'),
+    sessions: 8,
+    totalHours: '9.2h',
+  },
+  {
+    id: 'Biology',
+    name: 'Biology',
+    progress: 30,
+    color: '#ffb703',
+    image: require('../../assets/images/biology.jpg'),
+    sessions: 5,
+    totalHours: '6.0h',
+  },
+];
 
-    return () => clearInterval(interval);
-  }, [item.images.length]);
+interface RecentActivity {
+  id: string;
+  title: string;
+  subject: string;
+  duration: string;
+  date: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  score?: string;
+}
 
+const RECENT_ACTIVITIES: RecentActivity[] = [
+  {
+    id: '1',
+    title: 'Algebra & Equations Quiz',
+    subject: 'Mathematics',
+    duration: '15 mins',
+    date: 'Today',
+    icon: 'calculator-outline',
+    score: '5/5',
+  },
+  {
+    id: '2',
+    title: 'Newton\'s Laws of Motion',
+    subject: 'Physics',
+    duration: '35 mins',
+    date: 'Yesterday',
+    icon: 'planet-outline',
+    score: 'Completed',
+  },
+  {
+    id: '3',
+    title: 'Periodic Table & Molarity Test',
+    subject: 'Chemistry',
+    duration: '20 mins',
+    date: '2 days ago',
+    icon: 'flask-outline',
+    score: '4/5',
+  },
+  {
+    id: '4',
+    title: 'Cell Biology & Mitosis Test',
+    subject: 'Biology',
+    duration: '25 mins',
+    date: '3 days ago',
+    icon: 'leaf-outline',
+    score: '5/5',
+  },
+];
+
+const SubjectCard: React.FC<{ item: SubjectItem; colors: typeof Colors.light; onPress: () => void }> = ({
+  item,
+  colors,
+  onPress,
+}) => {
   return (
     <TouchableOpacity
-      style={[styles.subjectCard, { borderColor: colors.border }]}
-      onPress={() => router.push(`/inside/progress/${item.name}`)}
+      style={[styles.subjectCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+      onPress={onPress}
+      activeOpacity={0.88}
     >
-      <Animated.Image
-        source={item.images[currentImageIndex]}
-        style={[styles.backgroundImage, { opacity: fadeAnim }]}
-        resizeMode="cover"
-      />
-      <View style={[styles.contentOverlay, { backgroundColor: colors.cardBackground + 'D0' }]}>
-        <View style={styles.subjectHeader}>
-          <Text style={[styles.subjectTitle, { color: colors.text }]}>{item.name}</Text>
-          <Text style={[styles.progressText, { color: colors.secondaryText }]}>{item.progress}%</Text>
+      <View style={styles.subjectImageContainer}>
+        <Image source={item.image} style={styles.subjectImage} resizeMode="cover" />
+        <View style={styles.imageOverlay} />
+        <View style={[styles.subjectTag, { backgroundColor: item.color }]}>
+          <Text style={styles.subjectTagText}>{item.name}</Text>
         </View>
-        <View style={styles.progressBar}>
-          <View style={[
-            styles.progressFill,
-            {
-              width: `${item.progress}%`,
-              backgroundColor: item.color
-            }
-          ]} />
+      </View>
+
+      <View style={styles.subjectBody}>
+        <View style={styles.subjectMetaRow}>
+          <Text style={[styles.subjectHours, { color: colors.secondaryText }]}>
+            <Ionicons name="time-outline" size={13} color={colors.secondaryText} /> {item.totalHours}
+          </Text>
+          <Text style={[styles.subjectProgressText, { color: colors.text }]}>{item.progress}%</Text>
+        </View>
+
+        <View style={[styles.progressBarTrack, { backgroundColor: colors.surface }]}>
+          <View
+            style={[
+              styles.progressBarIndicator,
+              { width: `${item.progress}%`, backgroundColor: item.color },
+            ]}
+          />
         </View>
       </View>
     </TouchableOpacity>
   );
 };
 
-const HomePage = () => {
+export default function HomePage() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const [studyTime, setStudyTime] = useState(0);
-  const [isStudying, setIsStudying] = useState(false);
-  const progress = useSharedValue(0);
-  const currentRouter = useRouter();
+  const colors = isDark ? Colors.dark : Colors.light;
 
-  const colors = {
-    primary: '#4361ee',
-    background: isDark ? '#121212' : '#f8f9fa',
-    cardBackground: isDark ? '#1E1E1E' : '#FFFFFF',
-    text: isDark ? '#FFFFFF' : '#2B2D42',
-    secondaryText: isDark ? '#A0A0A0' : '#4A4E69',
-    border: isDark ? '#333333' : '#E0E0E0',
-  };
-
-  // Using URL-based images that work without local files
-  const subjects = [
-    {
-      name: 'Mathematics',
-      progress: 75,
-      color: '#FF6B6B',
-      images: [
-        { uri: 'https://www.shutterstock.com/shutterstock/photos/1859813464/display_1500/stock-vector-math-horizontal-banner-presentation-website-isolated-lettering-typography-idea-with-icons-1859813464.jpg' },
-        { uri: 'https://placehold.co/400x200.png/FF6B6B/FFF?text=Algebra' },
-        { uri: 'https://placehold.co/400x200.png/FF6B6B/FFF?text=Calculus' }
-      ]
-    },
-    {
-      name: 'Physics',
-      progress: 60,
-      color: '#4ECDC4',
-      images: [
-        { uri: 'https://placehold.co/400x200.png/4ECDC4/FFF?text=Physics' },
-        { uri: 'https://placehold.co/400x200.png/4ECDC4/FFF?text=Motion' },
-        { uri: 'https://placehold.co/400x200.png/4ECDC4/FFF?text=Energy' }
-      ]
-    },
-    {
-      name: 'Chemistry',
-      progress: 45,
-      color: '#45B7D1',
-      images: [
-        { uri: 'https://placehold.co/400x200.png/45B7D1/FFF?text=Chemistry' },
-        { uri: 'https://placehold.co/400x200.png/45B7D1/FFF?text=Elements' },
-        { uri: 'https://placehold.co/400x200.png/45B7D1/FFF?text=Reactions' }
-      ]
-    },
-    {
-      name: 'Biology',
-      progress: 30,
-      color: '#96CEB4',
-      images: [
-        { uri: 'https://placehold.co/400x200.png/96CEB4/FFF?text=Biology' },
-        { uri: 'https://placehold.co/400x200.png/96CEB4/FFF?text=Cells' },
-        { uri: 'https://placehold.co/400x200.png/96CEB4/FFF?text=DNA' }
-      ]
-    },
-  ];
+  // Study Timer State
+  const [studySeconds, setStudySeconds] = useState(1500); // 25 mins initial
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [timerMode, setTimerMode] = useState<'study' | 'break'>('study');
 
   useEffect(() => {
-    let interval;
-    if (isStudying) {
-      interval = setInterval(() => {
-        setStudyTime(prev => prev + 1);
-        progress.value = withSpring((studyTime % 60) / 60, { damping: 10 });
+    let timer: any = null;
+    if (isTimerRunning) {
+      timer = setInterval(() => {
+        setStudySeconds((prev) => (prev > 0 ? prev - 1 : 0));
       }, 1000);
     }
-    return () => clearInterval(interval);
-  }, [isStudying, studyTime]);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isTimerRunning]);
 
-  const TabBar = () => {
-    const tabs = [
-      { name: 'Home', icon: 'home', route: '/inside/Home' },
-      { name: 'Progress', icon: 'stats-chart', route: '/inside/progress' },
-      { name: 'AI', icon: 'sparkles', route: '/inside/ai-pages' },
-      { name: 'Create', icon: 'add-circle', route: '/inside/create-session' },
-      { name: 'Profile', icon: 'person', route: '/inside/profile' },
-    ];
+  const animatedTimerStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: withSpring(isTimerRunning ? 1.03 : 1, { damping: 12 }) }],
+    };
+  }, [isTimerRunning]);
 
-    return (
-      <View style={[styles.tabBar, { 
-        backgroundColor: colors.cardBackground,
-        borderTopColor: colors.border
-      }]}>
-        {tabs.map((tab) => (
-          <TouchableOpacity
-            key={tab.name}
-            onPress={() => currentRouter.push(tab.route)}
-            style={tab.name === 'AI' ? styles.aiTabItem : styles.tabItem}
-          >
-            <Ionicons
-              name={tab.icon}
-              size={tab.name === 'AI' ? 28 : 24}
-              color={currentRouter.pathname === tab.route ? colors.primary : colors.secondaryText}
-            />
-            {tab.name !== 'AI' && (
-              <Text style={[styles.tabText, { 
-                color: currentRouter.pathname === tab.route ? colors.primary : colors.secondaryText
-              }]}>
-                {tab.name}
-              </Text>
-            )}
-          </TouchableOpacity>
-        ))}
-      </View>
-    );
+  const formatTimer = (totalSeconds: number): string => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const renderSubject = ({ item }) => <SubjectCard item={item} colors={colors} />;
+  const resetTimer = () => {
+    setIsTimerRunning(false);
+    setStudySeconds(timerMode === 'study' ? 1500 : 300);
+  };
+
+  const switchTimerMode = (mode: 'study' | 'break') => {
+    setIsTimerRunning(false);
+    setTimerMode(mode);
+    setStudySeconds(mode === 'study' ? 1500 : 300);
+  };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <View>
-              <Text style={[styles.greeting, { color: colors.text }]}>Good Morning, Student!</Text>
-              <Text style={[styles.dateText, { color: colors.secondaryText }]}>
-                {new Date().toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={() => router.push('/inside/profile')}>
-              <Ionicons name="person-circle" size={32} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.quickActions}>
-            <TouchableOpacity 
-              style={[styles.actionCard, { backgroundColor: colors.cardBackground }]}
-              onPress={() => router.push('/inside/create-session')}
-            >
-              <Ionicons name="add-circle" size={32} color={colors.primary} />
-              <Text style={[styles.actionText, { color: colors.text }]}>New Session</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.actionCard, { backgroundColor: colors.cardBackground }]}
-              onPress={() => router.push('/inside/progress')}
-            >
-              <Ionicons name="stats-chart" size={32} color={colors.primary} />
-              <Text style={[styles.actionText, { color: colors.text }]}>Progress</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Progress</Text>
-          <FlatList
-            horizontal
-            data={subjects}
-            renderItem={renderSubject}
-            keyExtractor={item => item.name}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.subjectsList}
-          />
-
-          <View style={[styles.timerCard, { backgroundColor: colors.cardBackground }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Study Timer</Text>
-            <TouchableOpacity onPress={() => setIsStudying(!isStudying)}>
-              <Reanimated.View style={[styles.timerCircle, {
-                borderColor: isStudying ? colors.primary : colors.border,
-                transform: [{ scale: progress.value + 0.8 }]
-              }]}>
-                <Text style={[styles.timerText, { color: colors.text }]}>
-                  {Math.floor(studyTime / 60)}:{String(studyTime % 60).padStart(2, '0')}
-                </Text>
-                <Ionicons 
-                  name={isStudying ? 'stop-circle' : 'play-circle'} 
-                  size={40} 
-                  color={colors.primary} 
-                />
-              </Reanimated.View>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity 
-            onPress={() => router.push('/inside/recent-activities')}
-            style={styles.sectionHeader}
-          >
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activities</Text>
-            <Ionicons name="arrow-forward" size={20} color={colors.secondaryText} />
-          </TouchableOpacity>
-          
-          <View style={[styles.activitiesCard, { backgroundColor: colors.cardBackground }]}>
-            {[
-              { id: '1', title: 'Algebra Basics', duration: '45 mins', date: '2023-08-20' },
-              { id: '2', title: 'Thermodynamics', duration: '1h 30m', date: '2023-08-19' },
-              { id: '3', title: 'Organic Chemistry', duration: '30 mins', date: '2023-08-18' },
-            ].map(activity => (
-              <TouchableOpacity key={activity.id} style={styles.activityItem}>
-                <View style={styles.activityText}>
-                  <Text style={[styles.activityTitle, { color: colors.text }]}>{activity.title}</Text>
-                  <Text style={{ color: colors.secondaryText }}>{activity.duration}</Text>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.mainContainer}>
+            {/* Top Greeting Header */}
+            <View style={styles.greetingHeader}>
+              <View>
+                <View style={styles.greetingBadge}>
+                  <Text style={[styles.greetingBadgeText, { color: colors.primary }]}>
+                    STUDYMATE DASHBOARD
+                  </Text>
                 </View>
-                <Text style={{ color: colors.secondaryText }}>
-                  {new Date(activity.date).toLocaleDateString()}
+                <Text style={[styles.greetingTitle, { color: colors.text }]}>
+                  Welcome, Scholar! 👋
                 </Text>
+                <Text style={[styles.greetingDate, { color: colors.secondaryText }]}>
+                  {new Date().toLocaleDateString(undefined, {
+                    weekday: 'long',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => router.push('/inside/profile')}
+                style={[styles.profileAvatarButton, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+                accessibilityRole="button"
+                accessibilityLabel="View Profile"
+              >
+                <Ionicons name="person" size={20} color={colors.primary} />
               </TouchableOpacity>
-            ))}
+            </View>
+
+            {/* Quick Actions Grid */}
+            <View style={styles.quickActionsGrid}>
+              <TouchableOpacity
+                style={[styles.quickActionCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+                onPress={() => router.push('/inside/create-session')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.actionIconBox, { backgroundColor: 'rgba(67, 97, 238, 0.12)' }]}>
+                  <Ionicons name="add-circle" size={24} color={colors.primary} />
+                </View>
+                <Text style={[styles.actionTitle, { color: colors.text }]}>New Session</Text>
+                <Text style={[styles.actionSub, { color: colors.secondaryText }]}>Create study plan</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.quickActionCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+                onPress={() => router.push('/inside/ai-pages')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.actionIconBox, { backgroundColor: 'rgba(247, 37, 133, 0.12)' }]}>
+                  <Ionicons name="sparkles" size={24} color="#f72585" />
+                </View>
+                <Text style={[styles.actionTitle, { color: colors.text }]}>AI Tutor</Text>
+                <Text style={[styles.actionSub, { color: colors.secondaryText }]}>Ask any question</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.quickActionCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+                onPress={() => router.push('/inside/progress')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.actionIconBox, { backgroundColor: 'rgba(6, 214, 160, 0.12)' }]}>
+                  <Ionicons name="stats-chart" size={24} color="#06d6a0" />
+                </View>
+                <Text style={[styles.actionTitle, { color: colors.text }]}>Analytics</Text>
+                <Text style={[styles.actionSub, { color: colors.secondaryText }]}>Weekly progress</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Active Study Timer Card */}
+            <Animated.View
+              style={[
+                styles.timerCard,
+                { backgroundColor: colors.cardBackground, borderColor: colors.border },
+                animatedTimerStyle,
+              ]}
+            >
+              <View style={styles.timerHeader}>
+                <View style={styles.timerTitleRow}>
+                  <Ionicons name="timer-outline" size={20} color={colors.primary} style={{ marginRight: 6 }} />
+                  <Text style={[styles.timerTitle, { color: colors.text }]}>Focus Timer</Text>
+                </View>
+                <View style={styles.timerModes}>
+                  <TouchableOpacity
+                    onPress={() => switchTimerMode('study')}
+                    style={[
+                      styles.modePill,
+                      timerMode === 'study' && { backgroundColor: colors.primary },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modePillText,
+                        { color: timerMode === 'study' ? '#ffffff' : colors.secondaryText },
+                      ]}
+                    >
+                      Study 25m
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => switchTimerMode('break')}
+                    style={[
+                      styles.modePill,
+                      timerMode === 'break' && { backgroundColor: colors.primary },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modePillText,
+                        { color: timerMode === 'break' ? '#ffffff' : colors.secondaryText },
+                      ]}
+                    >
+                      Break 5m
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.timerCenter}>
+                <Text style={[styles.timerDigits, { color: colors.text }]}>
+                  {formatTimer(studySeconds)}
+                </Text>
+                <Text style={[styles.timerStatusText, { color: isTimerRunning ? colors.primary : colors.secondaryText }]}>
+                  {isTimerRunning ? 'Session in progress • Stay focused' : 'Paused • Ready when you are'}
+                </Text>
+
+                <View style={styles.timerControls}>
+                  <TouchableOpacity
+                    onPress={() => setIsTimerRunning(!isTimerRunning)}
+                    style={[
+                      styles.timerMainButton,
+                      { backgroundColor: isTimerRunning ? '#ef4444' : colors.primary },
+                    ]}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons
+                      name={isTimerRunning ? 'pause' : 'play'}
+                      size={24}
+                      color="#ffffff"
+                    />
+                    <Text style={styles.timerMainButtonText}>
+                      {isTimerRunning ? 'Pause' : 'Start Focus'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={resetTimer}
+                    style={[styles.timerResetButton, { backgroundColor: colors.surface }]}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="refresh" size={18} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Animated.View>
+
+            {/* Subject Mastery Carousel */}
+            <View style={styles.sectionHeaderRow}>
+              <View>
+                <Text style={[styles.sectionHeading, { color: colors.text }]}>Course Progress</Text>
+                <Text style={[styles.sectionSubheading, { color: colors.secondaryText }]}>
+                  Tap any subject to view detailed performance
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => router.push('/inside/progress')}
+                style={styles.seeAllButton}
+              >
+                <Text style={[styles.seeAllText, { color: colors.primary }]}>View All</Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              horizontal
+              data={SUBJECTS}
+              keyExtractor={(item) => item.id}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.subjectsScroll}
+              renderItem={({ item }) => (
+                <SubjectCard
+                  item={item}
+                  colors={colors}
+                  onPress={() => router.push(`/inside/progress/${item.name}` as any)}
+                />
+              )}
+            />
+
+            {/* Recent Activities Section */}
+            <View style={[styles.sectionHeaderRow, { marginTop: 28 }]}>
+              <View>
+                <Text style={[styles.sectionHeading, { color: colors.text }]}>Recent Activities</Text>
+                <Text style={[styles.sectionSubheading, { color: colors.secondaryText }]}>
+                  Resume recent quizzes and practice modules
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => router.push('/inside/recent-activities')}
+                style={styles.seeAllButton}
+              >
+                <Text style={[styles.seeAllText, { color: colors.primary }]}>All Activities</Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.activitiesCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              {RECENT_ACTIVITIES.map((activity, index) => {
+                const isLast = index === RECENT_ACTIVITIES.length - 1;
+                return (
+                  <TouchableOpacity
+                    key={activity.id}
+                    onPress={() => router.push(`/inside/activity/${activity.id}` as any)}
+                    style={[
+                      styles.activityRow,
+                      !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.activityIconCircle, { backgroundColor: colors.surface }]}>
+                      <Ionicons name={activity.icon} size={20} color={colors.primary} />
+                    </View>
+
+                    <View style={styles.activityInfo}>
+                      <Text style={[styles.activityTitle, { color: colors.text }]} numberOfLines={1}>
+                        {activity.title}
+                      </Text>
+                      <Text style={[styles.activityMeta, { color: colors.secondaryText }]}>
+                        {activity.subject} • {activity.duration} • {activity.date}
+                      </Text>
+                    </View>
+
+                    <View style={styles.activityRight}>
+                      {activity.score && (
+                        <View style={[styles.scoreBadge, { backgroundColor: colors.primaryLight }]}>
+                          <Text style={[styles.scoreBadgeText, { color: colors.primary }]}>
+                            {activity.score}
+                          </Text>
+                        </View>
+                      )}
+                      <Ionicons name="chevron-forward" size={16} color={colors.secondaryText} />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
-        </View>
-      </ScrollView>
-      <TabBar />
-    </View>
+        </ScrollView>
+
+        <BottomNav />
+      </View>
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    padding: 24,
-    maxWidth: 800,
+  },
+  scrollContent: {
+    paddingBottom: 110,
+    paddingTop: Platform.OS === 'ios' ? 12 : 20,
+    paddingHorizontal: 20,
+  },
+  mainContainer: {
+    maxWidth: 820,
+    width: '100%',
     alignSelf: 'center',
-    width: '100%'
   },
-  header: {
+  greetingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 32
+    marginBottom: 24,
   },
-  greeting: {
-    fontSize: 24,
-    fontWeight: '700'
+  greetingBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(67, 97, 238, 0.1)',
+    marginBottom: 6,
   },
-  dateText: {
-    fontSize: 16,
-    marginTop: 4
-  },
-  quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 16,
-    marginBottom: 24
-  },
-  actionCard: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1
-  },
-  actionText: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: '600'
-  },
-  sectionTitle: {
-    fontSize: 20,
+  greetingBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
-    marginVertical: 16
+    letterSpacing: 0.6,
   },
-  subjectsList: {
-    paddingBottom: 16
+  greetingTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  greetingDate: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  profileAvatarButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  quickActionCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+  },
+  actionIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  actionSub: {
+    fontSize: 11,
+  },
+  timerCard: {
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 28,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+  },
+  timerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  timerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  timerModes: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  modePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  modePillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  timerCenter: {
+    alignItems: 'center',
+  },
+  timerDigits: {
+    fontSize: 54,
+    fontWeight: '800',
+    letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
+  },
+  timerStatusText: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 4,
+    marginBottom: 18,
+  },
+  timerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  timerMainButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+  },
+  timerMainButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  timerResetButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 14,
+  },
+  sectionHeading: {
+    fontSize: 19,
+    fontWeight: '700',
+  },
+  sectionSubheading: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  seeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  subjectsScroll: {
+    paddingRight: 16,
+    gap: 14,
+    paddingBottom: 4,
   },
   subjectCard: {
-    width: 280,
-    height: 180,
-    borderRadius: 12,
-    marginRight: 16,
+    width: 210,
+    borderRadius: 18,
+    borderWidth: 1,
     overflow: 'hidden',
-    borderWidth: 1
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
   },
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
+  subjectImageContainer: {
+    height: 110,
+    width: '100%',
+    position: 'relative',
+  },
+  subjectImage: {
     width: '100%',
     height: '100%',
   },
-  contentOverlay: {
+  imageOverlay: {
     ...StyleSheet.absoluteFillObject,
-    padding: 16,
-    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
   },
-  subjectHeader: {
+  subjectTag: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  subjectTagText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  subjectBody: {
+    padding: 14,
+  },
+  subjectMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  subjectTitle: {
-    fontSize: 20,
+  subjectHours: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  subjectProgressText: {
+    fontSize: 13,
     fontWeight: '700',
   },
-  progressText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  progressBar: {
+  progressBarTrack: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(0,0,0,0.1)',
     overflow: 'hidden',
   },
-  progressFill: {
+  progressBarIndicator: {
     height: '100%',
     borderRadius: 3,
   },
-  timerCard: {
-    padding: 24,
-    borderRadius: 16,
-    alignItems: 'center',
-    marginBottom: 24,
-    borderWidth: 1
-  },
-  timerCircle: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 16
-  },
-  timerText: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: 8
-  },
   activitiesCard: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1
-  },
-  activityItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderColor: '#E0E0E0'
-  },
-  activityTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 4
-  },
-  tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  tabItem: {
-    alignItems: 'center',
-    padding: 8,
-    flex: 1,
-  },
-  aiTabItem: {
-    alignItems: 'center',
-    padding: 8,
-    marginTop: -20,
-    zIndex: 1,
-    backgroundColor: '#4361ee',
-    borderRadius: 30,
-    width: 60,
-    height: 60,
-    justifyContent: 'center',
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
   },
-  tabText: {
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  activityIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  activityMeta: {
     fontSize: 12,
-    marginTop: 4,
+  },
+  activityRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  scoreBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  scoreBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });
-
-export default HomePage;

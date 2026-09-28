@@ -1,381 +1,496 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet,
+  useColorScheme,
+  Alert,
+  SafeAreaView,
+  Platform,
+} from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from 'react-native';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
+import { Colors } from '../../constants/theme';
+import { AppHeader } from '../../components/AppHeader';
+import { BottomNav } from '../../components/BottomNav';
 
-const FormField = ({ 
-  label, 
-  icon, 
-  placeholder, 
-  value, 
-  onChangeText, 
-  colors,
-  ...props 
-}) => (
-  <View style={styles.fieldContainer}>
-    <Text style={[styles.label, { color: colors.secondaryText }]}>{label}</Text>
-    <View style={[styles.inputContainer, { 
-      backgroundColor: colors.cardBackground,
-      borderColor: colors.border
-    }]}>
-      <Ionicons 
-        name={icon} 
-        size={20} 
-        color={colors.primary} 
-        style={{ marginRight: 12 }}
-      />
-      <TextInput
-        placeholder={placeholder}
-        placeholderTextColor={colors.placeholder}
-        value={value}
-        onChangeText={onChangeText}
-        style={[styles.input, { color: colors.text }]}
-        {...props}
-      />
-    </View>
-  </View>
-);
-
-const CreateSession = () => {
+export default function CreateSession() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const [loading, setLoading] = useState(false);
-  const [files, setFiles] = useState([]);
-  const [mode, setMode] = useState('individual');
-  const [duration, setDuration] = useState({ hours: 1, minutes: 0 });
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [sessionName, setSessionName] = useState('');
+  const colors = isDark ? Colors.dark : Colors.light;
 
-  const colors = {
-    primary: '#4361ee',
-    background: isDark ? '#121212' : '#f8f9fa',
-    cardBackground: isDark ? '#1E1E1E' : '#FFFFFF',
-    text: isDark ? '#FFFFFF' : '#2B2D42',
-    secondaryText: isDark ? '#A0A0A0' : '#4A4E69',
-    border: isDark ? '#333333' : '#E0E0E0',
-    placeholder: isDark ? '#666666' : '#999999',
-  };
+  const [sessionName, setSessionName] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('Mathematics');
+  const [durationHours, setDurationHours] = useState(1);
+  const [durationMinutes, setDurationMinutes] = useState(30);
+  const [mode, setMode] = useState<'individual' | 'group'>('individual');
+  const [files, setFiles] = useState<DocumentPicker.DocumentPickerAsset[]>([]);
+  const [sessionNotes, setSessionNotes] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   const subjects = [
-    'Mathematics', 
-    'Physics', 
-    'Chemistry', 
-    'Biology', 
-    'Computer Science'
+    'Mathematics',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'Computer Science',
+    'General Study',
   ];
 
   const handleCreateSession = () => {
+    if (!sessionName.trim()) {
+      Alert.alert('Required Field', 'Please enter a name or topic for your study session.');
+      return;
+    }
+
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      router.replace('inside/Home');
-    }, 1500);
+      Alert.alert(
+        'Session Scheduled!',
+        `"${sessionName}" has been created for ${selectedSubject}. Duration: ${durationHours}h ${durationMinutes}m.`,
+        [
+          {
+            text: 'Go to Dashboard',
+            onPress: () => router.replace('/inside/Home'),
+          },
+        ]
+      );
+    }, 800);
   };
 
   const pickDocuments = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: '*/*',
-        multiple: true
+        multiple: true,
       });
-      if (!result.canceled) {
-        setFiles([...files, ...result.assets]);
+      if (!result.canceled && result.assets) {
+        setFiles((prev) => [...prev, ...result.assets]);
       }
     } catch (err) {
       console.error('Document picker error:', err);
     }
   };
 
-  const formatDuration = () => {
-    let time = '';
-    if (duration.hours > 0) time += `${duration.hours}h `;
-    if (duration.minutes > 0) time += `${duration.minutes}m`;
-    return time || '0m';
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.text }]}>New Study Session</Text>
-          <View style={{ width: 24 }} />
-        </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <AppHeader title="New Study Session" subtitle="Schedule and customize study goals" />
 
-        <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-          <FormField
-            label="Session Name"
-            icon="book-outline"
-            placeholder="Enter session name"
-            value={sessionName}
-            onChangeText={setSessionName}
-            colors={colors}
-          />
-
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.secondaryText }]}>Subject</Text>
-            <View style={[styles.pickerContainer, { backgroundColor: colors.cardBackground }]}>
-              <Picker
-                selectedValue={subjects[0]}
-                style={{ color: colors.text }}
-                dropdownIconColor={colors.secondaryText}
-              >
-                {subjects.map(subject => (
-                  <Picker.Item key={subject} label={subject} value={subject} />
-                ))}
-              </Picker>
-            </View>
-          </View>
-
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.secondaryText }]}>Duration</Text>
-            <TouchableOpacity 
-              style={[styles.durationButton, { backgroundColor: colors.cardBackground }]}
-              onPress={() => setShowTimePicker(true)}
-            >
-              <Ionicons name="time-outline" size={20} color={colors.primary} />
-              <Text style={[styles.durationText, { color: colors.text }]}>
-                {formatDuration()}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Study Mode</Text>
-          <View style={styles.modeContainer}>
-            <TouchableOpacity
-              style={[
-                styles.modeButton,
-                { 
-                  backgroundColor: mode === 'individual' ? colors.primary : colors.cardBackground,
-                  borderColor: colors.border
-                }
-              ]}
-              onPress={() => setMode('individual')}
-            >
-              <Ionicons 
-                name="person" 
-                size={24} 
-                color={mode === 'individual' ? 'white' : colors.primary} 
-              />
-              <Text style={[
-                styles.modeText,
-                { color: mode === 'individual' ? 'white' : colors.text }
-              ]}>
-                Individual
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.modeButton,
-                { 
-                  backgroundColor: mode === 'group' ? colors.primary : colors.cardBackground,
-                  borderColor: colors.border
-                }
-              ]}
-              onPress={() => setMode('group')}
-            >
-              <Ionicons 
-                name="people" 
-                size={24} 
-                color={mode === 'group' ? 'white' : colors.primary} 
-              />
-              <Text style={[
-                styles.modeText,
-                { color: mode === 'group' ? 'white' : colors.text }
-              ]}>
-                Group Study
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Materials</Text>
-          <TouchableOpacity 
-            style={[styles.uploadButton, { borderColor: colors.border }]}
-            onPress={pickDocuments}
-          >
-            <Ionicons name="attach" size={24} color={colors.primary} />
-            <Text style={[styles.uploadText, { color: colors.text }]}>
-              {files.length > 0 ? 
-                `${files.length} files attached` : 
-                'Attach study materials'
-              }
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Session Notes</Text>
-          <TextInput
-            placeholder="Enter any specific notes or goals..."
-            placeholderTextColor={colors.placeholder}
-            multiline
-            numberOfLines={4}
-            style={[styles.notesInput, { 
-              color: colors.text,
-              borderColor: colors.border
-            }]}
-          />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.createButton, { backgroundColor: colors.primary }]}
-          onPress={handleCreateSession}
-          disabled={loading}
+      <View style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <>
-              <Ionicons name="add-circle" size={24} color="white" />
-              <Text style={styles.createButtonText}>Create Session</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          <View style={styles.mainContainer}>
+            {/* Session Basic Info */}
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>Session Details</Text>
 
-        {showTimePicker && (
-          <DateTimePicker
-            value={new Date()}
-            mode="time"
-            is24Hour={true}
-            display="spinner"
-            onChange={(event, selectedDate) => {
-              setShowTimePicker(false);
-              if (selectedDate) {
-                setDuration({
-                  hours: selectedDate.getHours(),
-                  minutes: selectedDate.getMinutes()
-                });
-              }
-            }}
-          />
-        )}
+              {/* Session Name */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: colors.text }]}>Session Name *</Text>
+                <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Ionicons name="book-outline" size={20} color={colors.primary} style={styles.fieldIcon} />
+                  <TextInput
+                    placeholder="e.g. Calculus Midterm Prep"
+                    placeholderTextColor={colors.placeholder}
+                    value={sessionName}
+                    onChangeText={setSessionName}
+                    style={[styles.input, { color: colors.text }]}
+                  />
+                </View>
+              </View>
+
+              {/* Subject Selection */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: colors.text }]}>Subject</Text>
+                <View style={[styles.pickerBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Picker
+                    selectedValue={selectedSubject}
+                    onValueChange={(val) => setSelectedSubject(val)}
+                    style={{ color: colors.text }}
+                    dropdownIconColor={colors.secondaryText}
+                  >
+                    {subjects.map((subj) => (
+                      <Picker.Item key={subj} label={subj} value={subj} color={colors.text} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
+              {/* Duration Settings */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: colors.text }]}>Duration</Text>
+                <TouchableOpacity
+                  style={[styles.durationPickerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => setShowTimePicker(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="time-outline" size={20} color={colors.primary} style={styles.fieldIcon} />
+                  <Text style={[styles.durationText, { color: colors.text }]}>
+                    {durationHours} hour{durationHours === 1 ? '' : 's'} {durationMinutes} minutes
+                  </Text>
+                  <Ionicons name="chevron-down" size={18} color={colors.secondaryText} />
+                </TouchableOpacity>
+
+                {showTimePicker && (
+                  <DateTimePicker
+                    value={new Date(2026, 0, 1, durationHours, durationMinutes)}
+                    mode="time"
+                    is24Hour={true}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
+                      setShowTimePicker(false);
+                      if (selectedDate) {
+                        setDurationHours(selectedDate.getHours());
+                        setDurationMinutes(selectedDate.getMinutes());
+                      }
+                    }}
+                  />
+                )}
+              </View>
+            </View>
+
+            {/* Study Mode Card */}
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>Study Mode</Text>
+              <View style={styles.modeRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.modeButton,
+                    {
+                      backgroundColor: mode === 'individual' ? colors.primary : colors.surface,
+                      borderColor: mode === 'individual' ? colors.primary : colors.border,
+                    },
+                  ]}
+                  onPress={() => setMode('individual')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="person"
+                    size={22}
+                    color={mode === 'individual' ? '#ffffff' : colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.modeButtonText,
+                      { color: mode === 'individual' ? '#ffffff' : colors.text },
+                    ]}
+                  >
+                    Solo Focus
+                  </Text>
+                  <Text
+                    style={[
+                      styles.modeSubText,
+                      { color: mode === 'individual' ? 'rgba(255,255,255,0.8)' : colors.secondaryText },
+                    ]}
+                  >
+                    Distraction-free timer
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.modeButton,
+                    {
+                      backgroundColor: mode === 'group' ? colors.primary : colors.surface,
+                      borderColor: mode === 'group' ? colors.primary : colors.border,
+                    },
+                  ]}
+                  onPress={() => setMode('group')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="people"
+                    size={22}
+                    color={mode === 'group' ? '#ffffff' : colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.modeButtonText,
+                      { color: mode === 'group' ? '#ffffff' : colors.text },
+                    ]}
+                  >
+                    Group Room
+                  </Text>
+                  <Text
+                    style={[
+                      styles.modeSubText,
+                      { color: mode === 'group' ? 'rgba(255,255,255,0.8)' : colors.secondaryText },
+                    ]}
+                  >
+                    Peer study tracking
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Study Materials */}
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <View style={styles.materialsHeader}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Study Materials</Text>
+                <TouchableOpacity
+                  style={[styles.attachButton, { backgroundColor: colors.primaryLight }]}
+                  onPress={pickDocuments}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="attach" size={16} color={colors.primary} />
+                  <Text style={[styles.attachText, { color: colors.primary }]}>Attach</Text>
+                </TouchableOpacity>
+              </View>
+
+              {files.length === 0 ? (
+                <View style={[styles.emptyAttachBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Ionicons name="cloud-upload-outline" size={28} color={colors.secondaryText} />
+                  <Text style={[styles.emptyAttachText, { color: colors.secondaryText }]}>
+                    No documents attached yet (PDF, DOCX, images)
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.fileList}>
+                  {files.map((file, idx) => (
+                    <View
+                      key={idx}
+                      style={[styles.fileChip, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    >
+                      <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+                      <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
+                        {file.name}
+                      </Text>
+                      <TouchableOpacity onPress={() => removeFile(idx)}>
+                        <Ionicons name="close-circle" size={18} color={colors.danger} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Session Notes */}
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>Session Notes & Goals</Text>
+              <TextInput
+                placeholder="What specific topics or problems do you plan to conquer?"
+                placeholderTextColor={colors.placeholder}
+                value={sessionNotes}
+                onChangeText={setSessionNotes}
+                multiline
+                numberOfLines={4}
+                style={[
+                  styles.notesInput,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+              />
+            </View>
+
+            {/* Action Buttons */}
+            <TouchableOpacity
+              style={[styles.createButton, { backgroundColor: colors.primary }]}
+              onPress={handleCreateSession}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <>
+                  <Ionicons name="calendar-outline" size={20} color="#ffffff" />
+                  <Text style={styles.createButtonText}>Start / Schedule Session</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        <BottomNav />
       </View>
-    </ScrollView>
+    </SafeAreaView>
   );
-};
+}
 
-const styles = {
-  container: {
+const styles = StyleSheet.create({
+  safeArea: {
     flex: 1,
-    padding: 24,
-    maxWidth: 800,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 110,
+  },
+  mainContainer: {
+    maxWidth: 680,
+    width: '100%',
     alignSelf: 'center',
-    width: '100%'
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700'
+    gap: 16,
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 20,
+    borderWidth: 1,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '700',
     marginBottom: 16,
-    borderWidth: 1
   },
-  fieldContainer: {
-    marginBottom: 20
+  fieldGroup: {
+    marginBottom: 16,
   },
-  label: {
-    fontSize: 14,
-    marginBottom: 8
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 6,
   },
-  inputContainer: {
+  inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 12,
-    padding: 16,
-    borderWidth: 1
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    height: 50,
+  },
+  fieldIcon: {
+    marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 16
+    fontSize: 15,
   },
-  pickerContainer: {
+  pickerBox: {
     borderRadius: 12,
-    overflow: 'hidden'
+    borderWidth: 1,
+    overflow: 'hidden',
   },
-  durationButton: {
+  durationPickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
     borderRadius: 12,
-    gap: 12
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    height: 50,
   },
   durationText: {
-    fontSize: 16,
-    fontWeight: '500'
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16
-  },
-  modeContainer: {
+  modeRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 8
   },
   modeButton: {
     flex: 1,
-    alignItems: 'center',
     padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    gap: 4,
   },
-  modeText: {
-    fontSize: 14,
-    fontWeight: '500'
+  modeButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 4,
   },
-  uploadButton: {
+  modeSubText: {
+    fontSize: 12,
+  },
+  materialsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  attachButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  attachText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  emptyAttachBox: {
+    padding: 20,
     borderRadius: 12,
     borderWidth: 1,
-    gap: 12
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
-  uploadText: {
-    fontSize: 16
+  emptyAttachText: {
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  fileList: {
+    gap: 8,
+  },
+  fileChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 10,
+  },
+  fileName: {
+    flex: 1,
+    fontSize: 14,
   },
   notesInput: {
     minHeight: 100,
-    textAlignVertical: 'top',
-    padding: 16,
     borderRadius: 12,
-    borderWidth: 1
+    borderWidth: 1,
+    padding: 14,
+    textAlignVertical: 'top',
+    fontSize: 14,
+    lineHeight: 20,
   },
   createButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 24
+    height: 52,
+    borderRadius: 14,
+    gap: 8,
+    shadowColor: '#4361ee',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+    marginTop: 4,
   },
   createButtonText: {
-    color: 'white',
+    color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600'
-  }
-};
-
-export default CreateSession;
+    fontWeight: '700',
+  },
+});

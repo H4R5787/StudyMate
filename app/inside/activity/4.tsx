@@ -1,92 +1,92 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Animated,
+  StyleSheet,
+  useColorScheme,
+  SafeAreaView,
+} from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { Colors } from '../../../constants/theme';
+import { AppHeader } from '../../../components/AppHeader';
 
-const BiologyTest = () => {
+interface Question {
+  id: string;
+  question: string;
+  options: string[];
+  correctAnswer: string;
+  explanation: string;
+}
+
+const BIOLOGY_QUESTIONS: Question[] = [
+  {
+    id: '1',
+    question: 'Which intracellular organelle is primarily responsible for protein translation and synthesis?',
+    options: ['Ribosome', 'Mitochondria', 'Nucleolus', 'Golgi Apparatus'],
+    correctAnswer: 'Ribosome',
+    explanation: 'Ribosomes translate messenger RNA (mRNA) into polypeptide amino acid chains during protein synthesis.',
+  },
+  {
+    id: '2',
+    question: 'What is the primary function of chlorophyll pigments located within plant chloroplasts?',
+    options: ['Light absorption', 'Water absorption', 'Nutrient transport', 'CO₂ fixation'],
+    correctAnswer: 'Light absorption',
+    explanation: 'Chlorophyll absorbs blue and red wavelengths of solar light to excite electrons for the light-dependent reactions of photosynthesis.',
+  },
+  {
+    id: '3',
+    question: 'Which biological transport process describes the net passive movement of solvent water across a semipermeable membrane?',
+    options: ['Osmosis', 'Facilitated Diffusion', 'Active Transport', 'Endocytosis'],
+    correctAnswer: 'Osmosis',
+    explanation: 'Osmosis is the net diffusion of water molecules from regions of lower solute concentration to higher solute concentration.',
+  },
+  {
+    id: '4',
+    question: 'What is the correct hierarchical order of biological taxonomic classification from broadest to most specific?',
+    options: [
+      'Domain > Kingdom > Phylum > Class > Order',
+      'Kingdom > Class > Phylum > Order > Family',
+      'Phylum > Kingdom > Order > Class > Genus',
+      'Order > Family > Genus > Species > Domain'
+    ],
+    correctAnswer: 'Domain > Kingdom > Phylum > Class > Order',
+    explanation: 'The standard Linnaean hierarchy: Domain, Kingdom, Phylum, Class, Order, Family, Genus, Species.',
+  },
+  {
+    id: '5',
+    question: 'During which phase of eukaryotic mitosis are sister chromatids pulled apart toward opposite spindle poles?',
+    options: ['Anaphase', 'Metaphase', 'Prophase', 'Telophase'],
+    correctAnswer: 'Anaphase',
+    explanation: 'During anaphase, cohesin proteins are cleaved, allowing spindle fibers to shorten and separate sister chromatids to opposite poles.',
+  }
+];
+
+export default function BiologyTest() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const colors = isDark ? Colors.dark : Colors.light;
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [score, setScore] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(480); // 8 minutes in seconds
+  const [timeRemaining, setTimeRemaining] = useState(480); // 8 mins
   const [showResults, setShowResults] = useState(false);
-  const progress = new Animated.Value(0);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const colors = {
-    primary: '#4361ee',
-    correct: '#4CAF50',
-    incorrect: '#F44336',
-    background: isDark ? '#121212' : '#f8f9fa',
-    cardBackground: isDark ? '#1E1E1E' : '#FFFFFF',
-    text: isDark ? '#FFFFFF' : '#2B2D42',
-    secondaryText: isDark ? '#A0A0A0' : '#4A4E69',
-    border: isDark ? '#333333' : '#E0E0E0',
-  };
-
-  const biologyQuestions = [
-    {
-      id: '1',
-      question: 'Which organelle is responsible for protein synthesis?',
-      options: [
-        'Mitochondria',
-        'Ribosome',
-        'Nucleus',
-        'Golgi Apparatus'
-      ],
-      correctAnswer: 'Ribosome'
-    },
-    {
-      id: '2',
-      question: 'What is the primary function of chlorophyll in plants?',
-      options: [
-        'Water absorption',
-        'Light absorption',
-        'Nutrient transport',
-        'Gas exchange'
-      ],
-      correctAnswer: 'Light absorption'
-    },
-    {
-      id: '3',
-      question: 'Which process describes the movement of water across a semipermeable membrane?',
-      options: [
-        'Diffusion',
-        'Osmosis',
-        'Active transport',
-        'Phagocytosis'
-      ],
-      correctAnswer: 'Osmosis'
-    },
-    {
-      id: '4',
-      question: 'What is the correct order of biological classification?',
-      options: [
-        'Kingdom > Phylum > Class > Order',
-        'Class > Phylum > Order > Family',
-        'Domain > Kingdom > Family > Species',
-        'Genus > Species > Family > Order'
-      ],
-      correctAnswer: 'Kingdom > Phylum > Class > Order'
-    },
-    {
-      id: '5',
-      question: 'Which phase of mitosis involves chromosome separation?',
-      options: [
-        'Prophase',
-        'Metaphase',
-        'Anaphase',
-        'Telophase'
-      ],
-      correctAnswer: 'Anaphase'
-    }
-  ];
+  const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (showResults) return;
     const timer = setInterval(() => {
-      setTimeRemaining(prev => {
+      setTimeRemaining((prev) => {
         if (prev <= 1) {
-          handleTimeUp();
+          clearInterval(timer);
+          finishQuiz();
           return 0;
         }
         return prev - 1;
@@ -94,198 +94,442 @@ const BiologyTest = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [showResults]);
 
-  Animated.timing(progress, {
-    toValue: (currentQuestionIndex + 1) / biologyQuestions.length,
-    duration: 500,
-    useNativeDriver: false
-  }).start();
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: (currentIndex + 1) / BIOLOGY_QUESTIONS.length,
+      duration: 350,
+      useNativeDriver: false,
+    }).start();
+  }, [currentIndex]);
 
-  const handleAnswer = (selectedAnswer: string) => {
-    if (selectedAnswer === biologyQuestions[currentQuestionIndex].correctAnswer) {
-      setScore(prev => prev + 1);
-    }
+  const handleSelectOption = (option: string) => {
+    if (isSubmitted) return;
+    setSelectedAnswers((prev) => ({ ...prev, [currentIndex]: option }));
+  };
 
-    if (currentQuestionIndex < biologyQuestions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+  const handleNext = () => {
+    if (currentIndex < BIOLOGY_QUESTIONS.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
     } else {
-      setShowResults(true);
+      finishQuiz();
     }
   };
 
-  const handleTimeUp = () => {
+  const finishQuiz = () => {
+    let finalScore = 0;
+    BIOLOGY_QUESTIONS.forEach((q, idx) => {
+      if (selectedAnswers[idx] === q.correctAnswer) {
+        finalScore += 1;
+      }
+    });
+    setScore(finalScore);
     setShowResults(true);
+    setIsSubmitted(true);
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const restartQuiz = () => {
+    setCurrentIndex(0);
+    setSelectedAnswers({});
+    setScore(0);
+    setTimeRemaining(480);
+    setShowResults(false);
+    setIsSubmitted(false);
   };
 
-  const progressWidth = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%']
-  });
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const currentQ = BIOLOGY_QUESTIONS[currentIndex];
+  const userSelected = selectedAnswers[currentIndex];
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.cardBackground }]}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={[styles.timerText, { color: colors.primary }]}>
-          {formatTime(timeRemaining)}
-        </Text>
-        <Text style={[styles.scoreText, { color: colors.text }]}>
-          Score: {score}
-        </Text>
-      </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <AppHeader
+        title="Biology Assessment"
+        subtitle={showResults ? "Results & Review" : `Question ${currentIndex + 1} of ${BIOLOGY_QUESTIONS.length}`}
+      />
 
-      {/* Progress Bar */}
-      <View style={styles.progressBarContainer}>
-        <Animated.View style={[
-          styles.progressBar,
-          { width: progressWidth, backgroundColor: colors.primary }
-        ]} />
-      </View>
+      {/* Progress Bar & Timer Header */}
+      {!showResults && (
+        <View style={[styles.quizSubHeader, { backgroundColor: colors.cardBackground, borderBottomColor: colors.border }]}>
+          <View style={styles.timerBadge}>
+            <Ionicons name="time-outline" size={16} color="#ffb703" />
+            <Text style={[styles.timerDigits, { color: '#ffb703' }]}>{formatTime(timeRemaining)}</Text>
+          </View>
 
-      {showResults ? (
-        <View style={styles.resultsContainer}>
-          <Ionicons name="leaf" size={64} color={colors.primary} />
-          <Text style={[styles.resultsTitle, { color: colors.text }]}>
-            Test Completed!
-          </Text>
-          <Text style={[styles.resultsText, { color: colors.text }]}>
-            Final Score: {score}/{biologyQuestions.length}
-          </Text>
-          <Text style={[styles.resultsText, { color: colors.text }]}>
-            Time Remaining: {formatTime(timeRemaining)}
-          </Text>
-          
-          <TouchableOpacity 
-            style={[styles.button, { backgroundColor: colors.primary }]}
-            onPress={() => {
-              setCurrentQuestionIndex(0);
-              setScore(0);
-              setTimeRemaining(480);
-              setShowResults(false);
-            }}
-          >
-            <Text style={[styles.buttonText, { color: colors.cardBackground }]}>
-              Retry Test
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.button, { backgroundColor: colors.border }]}
-            onPress={() => router.push('/inside/Home')}
-          >
-            <Text style={[styles.buttonText, { color: colors.text }]}>
-              Return to Dashboard
-            </Text>
-          </TouchableOpacity>
+          <View style={[styles.progressTrack, { backgroundColor: colors.surface }]}>
+            <Animated.View
+              style={[
+                styles.progressBar,
+                {
+                  backgroundColor: '#ffb703',
+                  width: progress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', '100%'],
+                  }),
+                },
+              ]}
+            />
+          </View>
         </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.container}>
-          <Text style={[styles.questionNumber, { color: colors.secondaryText }]}>
-            Question {currentQuestionIndex + 1} of {biologyQuestions.length}
-          </Text>
-          <Text style={[styles.questionText, { color: colors.text }]}>
-            {biologyQuestions[currentQuestionIndex].question}
-          </Text>
-
-          {biologyQuestions[currentQuestionIndex].options.map((option, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[styles.optionButton, { backgroundColor: colors.cardBackground }]}
-              onPress={() => handleAnswer(option)}
-            >
-              <Text style={[styles.optionText, { color: colors.text }]}>{option}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       )}
-    </View>
-  );
-};
 
-const styles = {
-  header: {
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.mainContainer}>
+          {showResults ? (
+            /* Results Screen */
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <View style={styles.resultsHeader}>
+                <View style={[styles.trophyCircle, { backgroundColor: 'rgba(255, 183, 3, 0.15)' }]}>
+                  <Ionicons name="leaf" size={44} color="#ffb703" />
+                </View>
+                <Text style={[styles.resultsTitle, { color: colors.text }]}>Biology Test Completed!</Text>
+                <Text style={[styles.resultsSub, { color: colors.secondaryText }]}>
+                  You scored {score} out of {BIOLOGY_QUESTIONS.length} ({Math.round((score / BIOLOGY_QUESTIONS.length) * 100)}%)
+                </Text>
+              </View>
+
+              {/* Explanations Review */}
+              <View style={styles.reviewSection}>
+                <Text style={[styles.reviewHeading, { color: colors.text }]}>Answers & Explanations</Text>
+                {BIOLOGY_QUESTIONS.map((q, idx) => {
+                  const wasCorrect = selectedAnswers[idx] === q.correctAnswer;
+                  return (
+                    <View
+                      key={q.id}
+                      style={[
+                        styles.reviewCard,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: wasCorrect ? Colors.light.success : colors.danger,
+                        },
+                      ]}
+                    >
+                      <View style={styles.reviewTopRow}>
+                        <Text style={[styles.reviewNumber, { color: colors.secondaryText }]}>#{idx + 1}</Text>
+                        <Text style={[styles.reviewQuestion, { color: colors.text }]}>{q.question}</Text>
+                        <Ionicons
+                          name={wasCorrect ? "checkmark-circle" : "close-circle"}
+                          size={20}
+                          color={wasCorrect ? Colors.light.success : colors.danger}
+                        />
+                      </View>
+
+                      <Text style={[styles.reviewAnswerText, { color: colors.secondaryText }]}>
+                        Your answer:{' '}
+                        <Text style={{ fontWeight: '700', color: wasCorrect ? Colors.light.success : colors.danger }}>
+                          {selectedAnswers[idx] || 'Not answered'}
+                        </Text>
+                      </Text>
+                      {!wasCorrect && (
+                        <Text style={[styles.reviewAnswerText, { color: colors.secondaryText }]}>
+                          Correct answer:{' '}
+                          <Text style={{ fontWeight: '700', color: Colors.light.success }}>
+                            {q.correctAnswer}
+                          </Text>
+                        </Text>
+                      )}
+                      <Text style={[styles.explanationText, { color: colors.secondaryText }]}>
+                        💡 {q.explanation}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={[styles.primaryButton, { backgroundColor: '#ffb703' }]}
+                  onPress={restartQuiz}
+                >
+                  <Ionicons name="refresh" size={18} color="#ffffff" />
+                  <Text style={styles.primaryButtonText}>Retry Test</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.secondaryButton, { borderColor: colors.border }]}
+                  onPress={() => router.replace('/inside/Home')}
+                >
+                  <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Return to Dashboard</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            /* Active Question Screen */
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <View style={styles.questionHeader}>
+                <Text style={[styles.questionCounter, { color: '#ffb703' }]}>
+                  QUESTION {currentIndex + 1}
+                </Text>
+                <Text style={[styles.questionTitle, { color: colors.text }]}>{currentQ.question}</Text>
+              </View>
+
+              <View style={styles.optionsList}>
+                {currentQ.options.map((option, idx) => {
+                  const isSelected = userSelected === option;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      onPress={() => handleSelectOption(option)}
+                      style={[
+                        styles.optionCard,
+                        {
+                          backgroundColor: isSelected ? 'rgba(255, 183, 3, 0.1)' : colors.surface,
+                          borderColor: isSelected ? '#ffb703' : colors.border,
+                        },
+                      ]}
+                      activeOpacity={0.8}
+                    >
+                      <View
+                        style={[
+                          styles.optionPill,
+                          {
+                            backgroundColor: isSelected ? '#ffb703' : 'transparent',
+                            borderColor: isSelected ? '#ffb703' : colors.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.optionLetter,
+                            { color: isSelected ? '#ffffff' : colors.secondaryText },
+                          ]}
+                        >
+                          {String.fromCharCode(65 + idx)}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.optionLabel,
+                          { color: isSelected ? '#ffb703' : colors.text, fontWeight: isSelected ? '700' : '500' },
+                        ]}
+                      >
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <TouchableOpacity
+                onPress={handleNext}
+                disabled={!userSelected}
+                style={[
+                  styles.nextButton,
+                  {
+                    backgroundColor: userSelected ? '#ffb703' : colors.border,
+                    opacity: userSelected ? 1 : 0.6,
+                  },
+                ]}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.nextButtonText}>
+                  {currentIndex === BIOLOGY_QUESTIONS.length - 1 ? 'Submit Test' : 'Next Question'}
+                </Text>
+                <Ionicons name="arrow-forward" size={18} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  quizSubHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    marginBottom: 8
+    gap: 16,
   },
-  timerText: {
-    fontSize: 18,
-    fontWeight: '700'
+  timerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  scoreText: {
-    fontSize: 16,
-    fontWeight: '600'
+  timerDigits: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
-  progressBarContainer: {
-    height: 4,
-    backgroundColor: '#E0E0E0',
-    width: '100%'
+  progressTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
   },
   progressBar: {
-    height: '100%'
+    height: '100%',
+    borderRadius: 3,
   },
-  container: {
-    padding: 16,
-    paddingBottom: 80
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
-  questionNumber: {
-    fontSize: 16,
-    marginBottom: 8
+  mainContainer: {
+    maxWidth: 680,
+    width: '100%',
+    alignSelf: 'center',
   },
-  questionText: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 24
-  },
-  optionButton: {
-    padding: 16,
-    borderRadius: 8,
-    marginVertical: 8,
+  card: {
+    borderRadius: 20,
+    padding: 24,
     borderWidth: 1,
-    borderColor: '#E0E0E0'
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
   },
-  optionText: {
-    fontSize: 16
+  questionHeader: {
+    marginBottom: 24,
   },
-  resultsContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  questionCounter: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  questionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 28,
+  },
+  optionsList: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  optionCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 24
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    gap: 14,
+  },
+  optionPill: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionLetter: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  optionLabel: {
+    fontSize: 15,
+    flex: 1,
+  },
+  nextButton: {
+    height: 52,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  nextButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  resultsHeader: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  trophyCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   resultsTitle: {
-    fontSize: 28,
+    fontSize: 26,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  resultsSub: {
+    fontSize: 14,
+  },
+  reviewSection: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  reviewHeading: {
+    fontSize: 17,
     fontWeight: '700',
-    marginVertical: 16
+    marginBottom: 4,
   },
-  resultsText: {
-    fontSize: 18,
-    marginBottom: 8
-  },
-  button: {
+  reviewCard: {
     padding: 16,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-    marginVertical: 8
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 6,
   },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600'
-  }
-};
-
-export default BiologyTest;
+  reviewTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reviewNumber: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  reviewQuestion: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  reviewAnswerText: {
+    fontSize: 13,
+  },
+  explanationText: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  actionButtons: {
+    gap: 12,
+  },
+  primaryButton: {
+    height: 52,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  secondaryButton: {
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+});

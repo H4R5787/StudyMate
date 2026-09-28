@@ -1,65 +1,97 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  Alert,
+  StyleSheet,
+  useColorScheme,
+  SafeAreaView,
+  Modal,
+} from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from 'react-native';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { Colors } from '../../constants/theme';
+import { AppHeader } from '../../components/AppHeader';
+import { BottomNav } from '../../components/BottomNav';
 
-const ProfilePage = () => {
+export default function ProfilePage() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const colors = isDark ? Colors.dark : Colors.light;
+
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [image, setImage] = useState(null);
+  const [image, setImage] = useState<string | null>(null);
 
   const [profileData, setProfileData] = useState({
-    name: 'John Doe',
-    email: 'john@studymate.ai',
-    bio: 'AI-powered learning enthusiast',
-    university: 'Tech University',
+    name: 'Alex Johnson',
+    email: 'alex@studymate.ai',
+    bio: 'Computer Science & Physics student passionate about AI-driven learning.',
+    university: 'Stanford University',
     major: 'Computer Science',
-    graduationYear: '2024'
+    graduationYear: '2026',
   });
 
-  const colors = {
-    primary: '#4361ee',
-    background: isDark ? '#121212' : '#f8f9fa',
-    cardBackground: isDark ? '#1E1E1E' : '#FFFFFF',
-    text: isDark ? '#FFFFFF' : '#2B2D42',
-    secondaryText: isDark ? '#A0A0A0' : '#4A4E69',
-    border: isDark ? '#333333' : '#E0E0E0',
-  };
+  // Settings modal states
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setImage(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.warn('Image picker error:', err);
     }
   };
 
   const handleSave = () => {
     setLoading(true);
-    // Simulate API call
     setTimeout(() => {
       setLoading(false);
       setEditMode(false);
-      Alert.alert('Profile Updated', 'Your changes have been saved successfully');
-    }, 1500);
+      Alert.alert('Profile Updated', 'Your profile information has been saved successfully.');
+    }, 800);
+  };
+
+  const handleUpdatePassword = () => {
+    if (!newPassword || newPassword.length < 6) {
+      Alert.alert('Invalid Password', 'Password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Mismatch', 'Passwords do not match.');
+      return;
+    }
+    setShowPasswordModal(false);
+    setNewPassword('');
+    setConfirmPassword('');
+    Alert.alert('Password Updated', 'Your security credentials have been updated.');
   };
 
   const confirmLogout = () => {
     Alert.alert(
       'Log Out',
-      'Are you sure you want to log out?',
+      'Are you sure you want to end your session?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Log Out', onPress: () => router.replace('/Auth/login') }
+        { text: 'Log Out', style: 'destructive', onPress: () => router.replace('/Auth/login') },
       ]
     );
   };
@@ -67,299 +99,435 @@ const ProfilePage = () => {
   const confirmDelete = () => {
     Alert.alert(
       'Delete Account',
-      'This action cannot be undone. All your data will be permanently deleted.',
+      'Are you sure? All study history, quiz scores, and saved sessions will be permanently erased.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => {/* Handle deletion */} }
+        {
+          text: 'Permanently Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Account Deleted', 'Your data has been removed.');
+            router.replace('/');
+          },
+        },
       ]
     );
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Profile</Text>
-          <TouchableOpacity onPress={() => setEditMode(!editMode)}>
-            <Ionicons 
-              name={editMode ? 'close-circle' : 'create-outline'} 
-              size={28} 
-              color={colors.primary} 
-            />
-          </TouchableOpacity>
-        </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <AppHeader
+        title="Student Profile"
+        subtitle="Manage personal & academic records"
+        rightAction={{
+          icon: editMode ? 'close-outline' : 'create-outline',
+          onPress: () => setEditMode(!editMode),
+          label: editMode ? 'Cancel Edit' : 'Edit Profile',
+        }}
+      />
 
-        {/* Profile Section */}
-        <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-          <TouchableOpacity onPress={editMode ? pickImage : null}>
-            <View style={styles.avatarContainer}>
-              <Image
-                source={image ? { uri: image } : require('../../assets/images/icon.png')}
-                style={styles.avatar}
-              />
-              {editMode && (
-                <View style={styles.editBadge}>
-                  <Ionicons name="camera" size={20} color="white" />
+      <View style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.mainContainer}>
+            {/* Profile Avatar Card */}
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <View style={styles.avatarSection}>
+                <TouchableOpacity onPress={editMode ? pickImage : undefined} activeOpacity={editMode ? 0.7 : 1}>
+                  <View style={styles.avatarContainer}>
+                    <Image
+                      source={image ? { uri: image } : require('../../assets/images/icon.png')}
+                      style={styles.avatar}
+                    />
+                    {editMode && (
+                      <View style={[styles.editBadge, { backgroundColor: colors.primary }]}>
+                        <Ionicons name="camera" size={16} color="#ffffff" />
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+
+                <Text style={[styles.profileName, { color: colors.text }]}>{profileData.name}</Text>
+                <Text style={[styles.profileEmail, { color: colors.secondaryText }]}>{profileData.email}</Text>
+              </View>
+
+              <View style={styles.formFields}>
+                <View style={styles.fieldItem}>
+                  <Text style={[styles.fieldLabel, { color: colors.secondaryText }]}>Full Name</Text>
+                  {editMode ? (
+                    <TextInput
+                      value={profileData.name}
+                      onChangeText={(t) => setProfileData({ ...profileData, name: t })}
+                      style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    />
+                  ) : (
+                    <Text style={[styles.fieldValue, { color: colors.text }]}>{profileData.name}</Text>
+                  )}
                 </View>
-              )}
+
+                <View style={styles.fieldItem}>
+                  <Text style={[styles.fieldLabel, { color: colors.secondaryText }]}>Email Address</Text>
+                  {editMode ? (
+                    <TextInput
+                      value={profileData.email}
+                      onChangeText={(t) => setProfileData({ ...profileData, email: t })}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    />
+                  ) : (
+                    <Text style={[styles.fieldValue, { color: colors.text }]}>{profileData.email}</Text>
+                  )}
+                </View>
+
+                <View style={styles.fieldItem}>
+                  <Text style={[styles.fieldLabel, { color: colors.secondaryText }]}>Bio</Text>
+                  {editMode ? (
+                    <TextInput
+                      value={profileData.bio}
+                      onChangeText={(t) => setProfileData({ ...profileData, bio: t })}
+                      multiline
+                      numberOfLines={3}
+                      style={[styles.textArea, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    />
+                  ) : (
+                    <Text style={[styles.fieldValue, { color: colors.text }]}>{profileData.bio}</Text>
+                  )}
+                </View>
+              </View>
             </View>
-          </TouchableOpacity>
 
-          <View style={{ marginTop: 24 }}>
-            <EditableField
-              label="Full Name"
-              value={profileData.name}
-              editable={editMode}
-              onChangeText={(text) => setProfileData({...profileData, name: text})}
-              colors={colors}
+            {/* Academic Information */}
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Academic Information</Text>
+
+              <View style={styles.formFields}>
+                <View style={styles.fieldItem}>
+                  <Text style={[styles.fieldLabel, { color: colors.secondaryText }]}>University / Institution</Text>
+                  {editMode ? (
+                    <TextInput
+                      value={profileData.university}
+                      onChangeText={(t) => setProfileData({ ...profileData, university: t })}
+                      style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    />
+                  ) : (
+                    <Text style={[styles.fieldValue, { color: colors.text }]}>{profileData.university}</Text>
+                  )}
+                </View>
+
+                <View style={styles.fieldItem}>
+                  <Text style={[styles.fieldLabel, { color: colors.secondaryText }]}>Major / Field of Study</Text>
+                  {editMode ? (
+                    <TextInput
+                      value={profileData.major}
+                      onChangeText={(t) => setProfileData({ ...profileData, major: t })}
+                      style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    />
+                  ) : (
+                    <Text style={[styles.fieldValue, { color: colors.text }]}>{profileData.major}</Text>
+                  )}
+                </View>
+
+                <View style={styles.fieldItem}>
+                  <Text style={[styles.fieldLabel, { color: colors.secondaryText }]}>Graduation Year</Text>
+                  {editMode ? (
+                    <TextInput
+                      value={profileData.graduationYear}
+                      onChangeText={(t) => setProfileData({ ...profileData, graduationYear: t })}
+                      keyboardType="numeric"
+                      style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                    />
+                  ) : (
+                    <Text style={[styles.fieldValue, { color: colors.text }]}>{profileData.graduationYear}</Text>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* Account Security & Preferences */}
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Security & Preferences</Text>
+
+              <TouchableOpacity
+                style={[styles.settingRow, { borderBottomColor: colors.border }]}
+                onPress={() => setShowPasswordModal(true)}
+              >
+                <Ionicons name="lock-closed-outline" size={20} color={colors.primary} style={{ marginRight: 12 }} />
+                <Text style={[styles.settingText, { color: colors.text }]}>Change Password</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.secondaryText} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.settingRow, { borderBottomColor: colors.border }]}
+                onPress={() => {
+                  setNotificationsEnabled(!notificationsEnabled);
+                  Alert.alert('Notifications', `Study reminders are now ${!notificationsEnabled ? 'enabled' : 'disabled'}.`);
+                }}
+              >
+                <Ionicons name="notifications-outline" size={20} color={colors.primary} style={{ marginRight: 12 }} />
+                <Text style={[styles.settingText, { color: colors.text }]}>Study Reminder Notifications</Text>
+                <Ionicons
+                  name={notificationsEnabled ? "toggle" : "toggle-outline"}
+                  size={26}
+                  color={notificationsEnabled ? colors.primary : colors.secondaryText}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.settingRow, { borderBottomWidth: 0 }]}
+                onPress={() => router.push('/settings')}
+              >
+                <Ionicons name="settings-outline" size={20} color={colors.primary} style={{ marginRight: 12 }} />
+                <Text style={[styles.settingText, { color: colors.text }]}>All App Settings</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.secondaryText} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Save Button in Edit Mode */}
+            {editMode && (
+              <TouchableOpacity
+                style={[styles.saveButton, { backgroundColor: colors.primary }]}
+                onPress={handleSave}
+                disabled={loading}
+              >
+                <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Profile Changes'}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Account Actions / Danger Zone */}
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.settingRow, { borderBottomColor: colors.border }]}
+                onPress={confirmLogout}
+              >
+                <Ionicons name="log-out-outline" size={20} color={colors.danger} style={{ marginRight: 12 }} />
+                <Text style={[styles.settingText, { color: colors.danger }]}>Log Out</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.settingRow, { borderBottomWidth: 0 }]}
+                onPress={confirmDelete}
+              >
+                <Ionicons name="trash-outline" size={20} color={colors.danger} style={{ marginRight: 12 }} />
+                <Text style={[styles.settingText, { color: colors.danger }]}>Delete Account & Data</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+
+        <BottomNav />
+      </View>
+
+      {/* Change Password Modal */}
+      <Modal visible={showPasswordModal} transparent animationType="fade">
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.modalBox, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Change Password</Text>
+            <Text style={[styles.modalSub, { color: colors.secondaryText }]}>
+              Enter a new password of at least 6 characters.
+            </Text>
+
+            <TextInput
+              placeholder="New password"
+              placeholderTextColor={colors.placeholder}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+              style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
             />
 
-            <EditableField
-              label="Email"
-              value={profileData.email}
-              editable={editMode}
-              onChangeText={(text) => setProfileData({...profileData, email: text})}
-              colors={colors}
-              keyboardType="email-address"
+            <TextInput
+              placeholder="Confirm new password"
+              placeholderTextColor={colors.placeholder}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
             />
 
-            <EditableField
-              label="Bio"
-              value={profileData.bio}
-              editable={editMode}
-              onChangeText={(text) => setProfileData({...profileData, bio: text})}
-              colors={colors}
-              multiline
-            />
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                onPress={() => setShowPasswordModal(false)}
+                style={[styles.modalCancelBtn, { borderColor: colors.border }]}
+              >
+                <Text style={[styles.modalBtnText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleUpdatePassword}
+                style={[styles.modalSaveBtn, { backgroundColor: colors.primary }]}
+              >
+                <Text style={[styles.modalBtnText, { color: '#ffffff' }]}>Update</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-
-        {/* Academic Info */}
-        <SectionHeader title="Academic Information" colors={colors} />
-        <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-          <EditableField
-            label="University"
-            value={profileData.university}
-            editable={editMode}
-            onChangeText={(text) => setProfileData({...profileData, university: text})}
-            colors={colors}
-          />
-
-          <EditableField
-            label="Major"
-            value={profileData.major}
-            editable={editMode}
-            onChangeText={(text) => setProfileData({...profileData, major: text})}
-            colors={colors}
-          />
-
-          <EditableField
-            label="Graduation Year"
-            value={profileData.graduationYear}
-            editable={editMode}
-            onChangeText={(text) => setProfileData({...profileData, graduationYear: text})}
-            colors={colors}
-            keyboardType="numeric"
-          />
-        </View>
-
-        {/* Account Settings */}
-        <SectionHeader title="Account Settings" colors={colors} />
-        <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-          <SettingItem
-            icon="lock-closed"
-            label="Change Password"
-            onPress={() => router.push('/settings/change-password')}
-            colors={colors}
-          />
-          <SettingItem
-            icon="notifications"
-            label="Notification Preferences"
-            onPress={() => router.push('/settings/notifications')}
-            colors={colors}
-          />
-          <SettingItem
-            icon="moon"
-            label="Dark Mode"
-            rightElement={
-              <Ionicons 
-                name={isDark ? 'toggle' : 'toggle-outline'} 
-                size={24} 
-                color={colors.primary} 
-              />
-            }
-            colors={colors}
-          />
-        </View>
-
-        {/* Danger Zone */}
-        {editMode && (
-          <>
-            <SectionHeader title="Danger Zone" colors={colors} />
-            <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-              <SettingItem
-                icon="log-out"
-                label="Log Out"
-                color="#ef4444"
-                onPress={confirmLogout}
-                colors={colors}
-              />
-              <SettingItem
-                icon="trash"
-                label="Delete Account"
-                color="#ef4444"
-                onPress={confirmDelete}
-                colors={colors}
-              />
-            </View>
-          </>
-        )}
-
-        {/* Save Button */}
-        {editMode && (
-          <TouchableOpacity
-            onPress={handleSave}
-            disabled={loading}
-            style={[styles.saveButton, { backgroundColor: colors.primary }]}
-          >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.saveButtonText}>Save Changes</Text>
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
-    </ScrollView>
+      </Modal>
+    </SafeAreaView>
   );
-};
+}
 
-// Reusable Components
-const SectionHeader = ({ title, colors }) => (
-  <Text style={[styles.sectionHeader, { color: colors.text }]}>{title}</Text>
-);
-
-const EditableField = ({ label, value, editable, onChangeText, colors, ...props }) => (
-  <View style={styles.fieldContainer}>
-    <Text style={[styles.fieldLabel, { color: colors.secondaryText }]}>{label}</Text>
-    {editable ? (
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        style={[styles.input, { color: colors.text }]}
-        placeholderTextColor={colors.placeholder}
-        {...props}
-      />
-    ) : (
-      <Text style={[styles.fieldValue, { color: colors.text }]}>{value}</Text>
-    )}
-  </View>
-);
-
-const SettingItem = ({ icon, label, onPress, rightElement, color, colors }) => (
-  <TouchableOpacity 
-    style={styles.settingItem} 
-    onPress={onPress}
-    activeOpacity={0.8}
-  >
-    <Ionicons 
-      name={icon} 
-      size={20} 
-      color={color || colors.primary} 
-      style={{ marginRight: 16 }}
-    />
-    <Text style={[styles.settingLabel, { color: colors.text }]}>{label}</Text>
-    {rightElement || <Ionicons name="chevron-forward" size={20} color={colors.secondaryText} />}
-  </TouchableOpacity>
-);
-
-const styles = {
-  container: {
+const styles = StyleSheet.create({
+  safeArea: {
     flex: 1,
-    padding: 24,
-    maxWidth: 800,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 110,
+  },
+  mainContainer: {
+    maxWidth: 720,
+    width: '100%',
     alignSelf: 'center',
-    width: '100%'
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700'
+    gap: 16,
   },
   card: {
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
-    borderWidth: 1
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+  },
+  avatarSection: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
   avatarContainer: {
-    alignSelf: 'center',
-    position: 'relative'
+    position: 'relative',
+    marginBottom: 12,
   },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60
+    width: 96,
+    height: 96,
+    borderRadius: 48,
   },
   editBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#4361ee',
-    borderRadius: 20,
-    padding: 8
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
-  fieldContainer: {
-    marginBottom: 20
+  profileName: {
+    fontSize: 20,
+    fontWeight: '700',
   },
+  profileEmail: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  formFields: {
+    gap: 14,
+  },
+  fieldItem: {},
   fieldLabel: {
-    fontSize: 14,
-    marginBottom: 4
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   fieldValue: {
-    fontSize: 16,
-    paddingVertical: 8
+    fontSize: 15,
+    fontWeight: '500',
   },
   input: {
-    fontSize: 16,
-    borderBottomWidth: 1,
-    paddingVertical: 8,
-    borderColor: '#E0E0E0'
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    fontSize: 14,
   },
-  sectionHeader: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-    marginTop: 8
+  textArea: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 70,
   },
-  settingItem: {
+  settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderColor: '#E0E0E0'
   },
-  settingLabel: {
+  settingText: {
     flex: 1,
-    fontSize: 16
+    fontSize: 14,
+    fontWeight: '600',
   },
   saveButton: {
-    borderRadius: 12,
-    padding: 16,
+    height: 52,
+    borderRadius: 14,
     alignItems: 'center',
-    marginTop: 24
+    justifyContent: 'center',
+    elevation: 3,
   },
   saveButtonText: {
-    color: 'white',
+    color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600'
-  }
-};
-
-export default ProfilePage;
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalBox: {
+    maxWidth: 420,
+    width: '100%',
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  modalSub: {
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  modalInput: {
+    height: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  modalActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 8,
+  },
+  modalCancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  modalSaveBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});

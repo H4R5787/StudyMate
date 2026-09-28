@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from 'expo-router';
 import { Colors } from '../../../constants/theme';
 import { AppHeader } from '../../../components/AppHeader';
+import { StorageService } from '../../../services/storage';
 
 interface Section {
   id: string;
@@ -96,6 +97,16 @@ export default function PhysicsChapter() {
         next.delete(id);
       } else {
         next.add(id);
+        if (next.size === totalSections) {
+          StorageService.saveActivity({
+            routeId: '2',
+            title: 'Physics Mechanics: Chapter 2',
+            subject: 'Physics',
+            duration: '35 mins',
+            date: 'Today',
+            score: '100%',
+          }).catch((e) => console.warn('Failed saving activity:', e));
+        }
       }
       return next;
     });

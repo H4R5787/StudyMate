@@ -14,8 +14,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'expo-router';
-import { auth } from '../../config/firebaseconfig';
+import { auth, isFirebaseConfigured } from '../../config/firebaseconfig';
 import { Colors } from '../../constants/theme';
+import { ValidationUtils } from '../../utils/validation';
+import { StorageService } from '../../services/storage';
 
 export default function Login() {
   const router = useRouter();
@@ -31,10 +33,6 @@ export default function Login() {
   const isDark = colorScheme === 'dark';
   const colors = isDark ? Colors.dark : Colors.light;
 
-  const validateEmail = (val: string): boolean => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
-  };
-
   const handleLogin = async () => {
     setError('');
     const cleanEmail = email.trim();
@@ -43,31 +41,32 @@ export default function Login() {
       setError('Please enter your email address');
       return;
     }
-    if (!validateEmail(cleanEmail)) {
+    if (!ValidationUtils.validateEmail(cleanEmail)) {
       setError('Please enter a valid email address');
       return;
     }
-    if (!password) {
-      setError('Please enter your password');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    const pwdCheck = ValidationUtils.validatePassword(password);
+    if (!pwdCheck.isValid) {
+      setError(pwdCheck.error || 'Invalid password');
       return;
     }
 
     setLoading(true);
+
+    // If Firebase backend is in offline demo mode (default local credentials)
+    if (!isFirebaseConfigured) {
+      await StorageService.saveProfile({ email: cleanEmail });
+      setLoading(false);
+      router.replace('/inside/Home');
+      return;
+    }
+
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, password);
+      await StorageService.saveProfile({ email: cleanEmail });
       router.replace('/inside/Home');
     } catch (err: any) {
-      console.warn('Firebase login attempt:', err?.code || err?.message);
-      // If Firebase project credentials are not configured or invalid, allow graceful demo bypass for test users
-      if (err?.code === 'auth/invalid-api-key' || err?.code === 'auth/api-key-not-valid' || err?.code === 'auth/network-request-failed') {
-        router.replace('/inside/Home');
-        return;
-      }
-
+      console.warn('Firebase login error:', err?.code || err?.message);
       let message = 'Failed to sign in. Please check your credentials.';
       if (err?.code === 'auth/user-not-found') {
         message = 'No account found with this email address.';
@@ -75,6 +74,8 @@ export default function Login() {
         message = 'Incorrect password or email. Please try again.';
       } else if (err?.code === 'auth/too-many-requests') {
         message = 'Too many failed attempts. Please try again later.';
+      } else if (err?.code === 'auth/network-request-failed') {
+        message = 'Network connection failed. Please check your internet connection.';
       } else if (err?.message) {
         message = err.message.replace(/^Firebase:\s*/i, '');
       }
@@ -84,7 +85,8 @@ export default function Login() {
     }
   };
 
-  const handleGuestDemo = () => {
+  const handleGuestDemo = async () => {
+    await StorageService.saveProfile({ email: 'guest@studymate.ai', name: 'Guest Scholar' });
     router.replace('/inside/Home');
   };
 

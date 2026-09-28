@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from 'expo-router';
 import { Colors } from '../../../constants/theme';
 import { AppHeader } from '../../../components/AppHeader';
+import { StorageService } from '../../../services/storage';
 
 interface Question {
   id: string;
@@ -89,6 +90,10 @@ export default function ChemistryTest() {
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const progress = useRef(new Animated.Value(0)).current;
+  const answersRef = useRef(selectedAnswers);
+  useEffect(() => {
+    answersRef.current = selectedAnswers;
+  }, [selectedAnswers]);
 
   useEffect(() => {
     if (showResults) return;
@@ -127,16 +132,29 @@ export default function ChemistryTest() {
     }
   };
 
-  const finishQuiz = () => {
+  const finishQuiz = async () => {
     let finalScore = 0;
+    const answers = answersRef.current;
     CHEMISTRY_QUESTIONS.forEach((q, idx) => {
-      if (selectedAnswers[idx] === q.correctAnswer) {
+      if (answers[idx] === q.correctAnswer) {
         finalScore += 1;
       }
     });
     setScore(finalScore);
     setShowResults(true);
     setIsSubmitted(true);
+    try {
+      await StorageService.saveActivity({
+        routeId: '3',
+        title: 'Chemistry Stoichiometry & Formula Quiz',
+        subject: 'Chemistry',
+        duration: '20 mins',
+        date: 'Today',
+        score: `${finalScore}/${CHEMISTRY_QUESTIONS.length}`,
+      });
+    } catch (e) {
+      console.warn('Failed saving quiz score:', e);
+    }
   };
 
   const restartQuiz = () => {

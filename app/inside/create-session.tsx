@@ -20,6 +20,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Colors } from '../../constants/theme';
 import { AppHeader } from '../../components/AppHeader';
 import { BottomNav } from '../../components/BottomNav';
+import { StorageService } from '../../services/storage';
 
 export default function CreateSession() {
   const router = useRouter();
@@ -46,14 +47,22 @@ export default function CreateSession() {
     'General Study',
   ];
 
-  const handleCreateSession = () => {
+  const handleCreateSession = async () => {
     if (!sessionName.trim()) {
       Alert.alert('Required Field', 'Please enter a name or topic for your study session.');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await StorageService.addSession({
+        name: sessionName.trim(),
+        subject: selectedSubject,
+        durationHours,
+        durationMinutes,
+        mode,
+        notes: sessionNotes.trim(),
+      });
       setLoading(false);
       Alert.alert(
         'Session Scheduled!',
@@ -65,7 +74,10 @@ export default function CreateSession() {
           },
         ]
       );
-    }, 800);
+    } catch (e) {
+      console.warn('Failed saving study session:', e);
+      setLoading(false);
+    }
   };
 
   const pickDocuments = async () => {

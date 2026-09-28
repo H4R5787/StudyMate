@@ -17,6 +17,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/theme';
+import { StorageService } from '../../services/storage';
 
 interface FormFieldProps {
   label: string;
@@ -149,7 +150,7 @@ export default function AcademicForm() {
     if (selectedDate) setDate(selectedDate);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.fullName.trim()) {
       Alert.alert('Required Field', 'Please enter your full name to set up your profile.');
       return;
@@ -160,10 +161,19 @@ export default function AcademicForm() {
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await StorageService.saveProfile({
+        name: formData.fullName.trim(),
+        university: formData.university.trim() || 'Stanford University',
+        major: formData.targetSubject || 'Computer Science',
+        bio: `${formData.educationLevel} scholar studying ${formData.targetSubject}. Target daily focus: ${formData.studyHoursPerDay}.`,
+      });
+    } catch (e) {
+      console.warn('Failed saving profile during onboarding:', e);
+    } finally {
       setLoading(false);
       router.replace('/inside/Home');
-    }, 1000);
+    }
   };
 
   return (

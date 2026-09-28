@@ -14,8 +14,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { useRouter } from 'expo-router';
-import { auth } from '../../config/firebaseconfig';
+import { auth, isFirebaseConfigured } from '../../config/firebaseconfig';
 import { Colors } from '../../constants/theme';
+import { ValidationUtils } from '../../utils/validation';
 
 export default function ForgotPassword() {
   const router = useRouter();
@@ -29,10 +30,6 @@ export default function ForgotPassword() {
   const isDark = colorScheme === 'dark';
   const colors = isDark ? Colors.dark : Colors.light;
 
-  const validateEmail = (val: string): boolean => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
-  };
-
   const handleSubmit = async () => {
     setError('');
     setSuccess(false);
@@ -42,12 +39,20 @@ export default function ForgotPassword() {
       setError('Please enter your email address');
       return;
     }
-    if (!validateEmail(cleanEmail)) {
+    if (!ValidationUtils.validateEmail(cleanEmail)) {
       setError('Please enter a valid email address');
       return;
     }
 
     setLoading(true);
+
+    if (!isFirebaseConfigured) {
+      setSuccess(true);
+      setEmail('');
+      setLoading(false);
+      return;
+    }
+
     try {
       await sendPasswordResetEmail(auth, cleanEmail);
       setSuccess(true);

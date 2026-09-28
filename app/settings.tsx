@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../constants/theme';
 import { AppHeader } from '../components/AppHeader';
+import { StorageService } from '../services/storage';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -27,6 +28,30 @@ export default function SettingsPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [offlineSync, setOfflineSync] = useState(true);
   const [selectedLanguage, setSelectedLanguage] = useState('English (US)');
+
+  useEffect(() => {
+    StorageService.getSettings().then((s) => {
+      setNotificationsEnabled(s.notificationsEnabled);
+      setSoundEnabled(s.soundEnabled);
+      setOfflineSync(s.offlineSync);
+      setSelectedLanguage(s.language);
+    });
+  }, []);
+
+  const handleToggleNotifications = (val: boolean) => {
+    setNotificationsEnabled(val);
+    StorageService.saveSettings({ notificationsEnabled: val });
+  };
+
+  const handleToggleSound = (val: boolean) => {
+    setSoundEnabled(val);
+    StorageService.saveSettings({ soundEnabled: val });
+  };
+
+  const handleToggleOffline = (val: boolean) => {
+    setOfflineSync(val);
+    StorageService.saveSettings({ offlineSync: val });
+  };
 
   // Modal states for settings actions
   const [modalType, setModalType] = useState<string | null>(null);
@@ -130,7 +155,7 @@ export default function SettingsPage() {
               </View>
               <Switch
                 value={notificationsEnabled}
-                onValueChange={setNotificationsEnabled}
+                onValueChange={handleToggleNotifications}
                 trackColor={{ false: colors.border, true: colors.primary }}
               />
             </View>
@@ -142,7 +167,7 @@ export default function SettingsPage() {
               </View>
               <Switch
                 value={soundEnabled}
-                onValueChange={setSoundEnabled}
+                onValueChange={handleToggleSound}
                 trackColor={{ false: colors.border, true: colors.primary }}
               />
             </View>
@@ -154,7 +179,7 @@ export default function SettingsPage() {
               </View>
               <Switch
                 value={offlineSync}
-                onValueChange={setOfflineSync}
+                onValueChange={handleToggleOffline}
                 trackColor={{ false: colors.border, true: colors.primary }}
               />
             </View>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/theme';
 import { AppHeader } from '../../components/AppHeader';
+import { StorageService } from '../../services/storage';
+import { ValidationUtils } from '../../utils/validation';
 
 interface ActivityItem {
   id: string;
@@ -29,23 +31,23 @@ interface ActivitySection {
   data: ActivityItem[];
 }
 
-const ALL_ACTIVITIES: ActivitySection[] = [
+const DEFAULT_ACTIVITIES: ActivitySection[] = [
   {
-    date: '2026-09-28',
+    date: 'Today',
     data: [
       { id: '1', routeId: '1', title: 'Mathematics Mastery Quiz', duration: '15 mins', type: 'Mathematics', score: '5/5', status: 'completed' },
       { id: '2', routeId: '2', title: 'Physics Mechanics: Chapter 2', duration: '35 mins', type: 'Physics', score: '100%', status: 'completed' },
     ],
   },
   {
-    date: '2026-09-27',
+    date: 'Yesterday',
     data: [
       { id: '3', routeId: '3', title: 'Chemistry Stoichiometry Drill', duration: '20 mins', type: 'Chemistry', score: '4/5', status: 'completed' },
       { id: '4', routeId: '4', title: 'Cell Biology & Mitosis Test', duration: '25 mins', type: 'Biology', score: '5/5', status: 'completed' },
     ],
   },
   {
-    date: '2026-09-25',
+    date: '3 Days Ago',
     data: [
       { id: '5', routeId: '1', title: 'Calculus Derivatives & Integrals', duration: '30 mins', type: 'Mathematics', score: '4/5', status: 'completed' },
       { id: '6', routeId: '3', title: 'Organic Chemistry & Bonding', duration: '25 mins', type: 'Chemistry', score: '3/5', status: 'completed' },
@@ -59,7 +61,32 @@ export default function RecentActivities() {
   const isDark = colorScheme === 'dark';
   const colors = isDark ? Colors.dark : Colors.light;
 
+  const [sections, setSections] = useState<ActivitySection[]>(DEFAULT_ACTIVITIES);
   const [selectedFilter, setSelectedFilter] = useState('all');
+
+  useEffect(() => {
+    StorageService.getActivities().then((stored) => {
+      if (stored && stored.length > 0) {
+        const storedItems: ActivityItem[] = stored.map((s) => ({
+          id: s.id,
+          routeId: s.routeId,
+          title: s.title,
+          duration: s.duration,
+          type: s.subject,
+          score: s.score,
+          status: 'completed',
+        }));
+
+        setSections([
+          {
+            date: 'Recently Completed',
+            data: storedItems,
+          },
+          ...DEFAULT_ACTIVITIES,
+        ]);
+      }
+    });
+  }, []);
 
   const filters = [
     { id: 'all', label: 'All Courses' },
@@ -84,7 +111,7 @@ export default function RecentActivities() {
     }
   };
 
-  const filteredSections = ALL_ACTIVITIES.map((section) => ({
+  const filteredSections = sections.map((section) => ({
     ...section,
     data: section.data.filter(
       (item) => selectedFilter === 'all' || item.type === selectedFilter
@@ -143,11 +170,7 @@ export default function RecentActivities() {
         renderSectionHeader={({ section: { date } }) => (
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionDateText, { color: colors.secondaryText }]}>
-              {new Date(date).toLocaleDateString(undefined, {
-                weekday: 'long',
-                month: 'short',
-                day: 'numeric',
-              })}
+              {ValidationUtils.formatDateHeader(date)}
             </Text>
           </View>
         )}

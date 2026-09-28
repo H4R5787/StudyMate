@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/theme';
 import { AppHeader } from '../../components/AppHeader';
 import { BottomNav } from '../../components/BottomNav';
+import { StorageService } from '../../services/storage';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -38,6 +39,22 @@ export default function ProfilePage() {
     graduationYear: '2026',
   });
 
+  useEffect(() => {
+    StorageService.getProfile().then((prof) => {
+      setProfileData({
+        name: prof.name,
+        email: prof.email,
+        bio: prof.bio,
+        university: prof.university,
+        major: prof.major,
+        graduationYear: prof.graduationYear,
+      });
+      if (prof.avatarUri) {
+        setImage(prof.avatarUri);
+      }
+    });
+  }, []);
+
   // Settings modal states
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -54,20 +71,29 @@ export default function ProfilePage() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setImage(result.assets[0].uri);
+        const uri = result.assets[0].uri;
+        setImage(uri);
+        await StorageService.saveProfile({ avatarUri: uri });
       }
     } catch (err) {
       console.warn('Image picker error:', err);
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await StorageService.saveProfile({
+        ...profileData,
+        avatarUri: image,
+      });
       setLoading(false);
       setEditMode(false);
       Alert.alert('Profile Updated', 'Your profile information has been saved successfully.');
-    }, 800);
+    } catch (e) {
+      console.warn('Error saving profile:', e);
+      setLoading(false);
+    }
   };
 
   const handleUpdatePassword = () => {

@@ -10,12 +10,14 @@ import {
   useColorScheme,
   SafeAreaView,
   Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from 'expo-router';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Colors } from '../../constants/theme';
 import { BottomNav } from '../../components/BottomNav';
+import { StorageService, ScheduledSession } from '../../services/storage';
 
 interface SubjectItem {
   id: string;
@@ -161,22 +163,50 @@ export default function HomePage() {
   const isDark = colorScheme === 'dark';
   const colors = isDark ? Colors.dark : Colors.light;
 
-  // Study Timer State
+  // Study Timer & User State
+  const [userName, setUserName] = useState('Scholar');
+  const [scheduledSessions, setScheduledSessions] = useState<ScheduledSession[]>([]);
   const [studySeconds, setStudySeconds] = useState(1500); // 25 mins initial
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerMode, setTimerMode] = useState<'study' | 'break'>('study');
 
   useEffect(() => {
+    StorageService.getProfile().then((prof) => {
+      if (prof.name) {
+        const firstName = prof.name.split(' ')[0];
+        setUserName(firstName);
+      }
+    });
+    StorageService.getSessions().then((sess) => {
+      setScheduledSessions(sess);
+    });
+  }, []);
+
+  useEffect(() => {
     let timer: any = null;
     if (isTimerRunning) {
       timer = setInterval(() => {
-        setStudySeconds((prev) => (prev > 0 ? prev - 1 : 0));
+        setStudySeconds((prev) => {
+          if (prev <= 1) {
+            setIsTimerRunning(false);
+            const nextMode = timerMode === 'study' ? 'break' : 'study';
+            Alert.alert(
+              timerMode === 'study' ? '🎉 Study Session Complete!' : '⏰ Break Finished!',
+              timerMode === 'study'
+                ? 'Great focus! Take a 5-minute restorative break.'
+                : 'Ready to dive back into your studies?'
+            );
+            setTimerMode(nextMode);
+            return nextMode === 'study' ? 1500 : 300;
+          }
+          return prev - 1;
+        });
       }, 1000);
     }
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isTimerRunning]);
+  }, [isTimerRunning, timerMode]);
 
   const animatedTimerStyle = useAnimatedStyle(() => {
     return {
@@ -218,7 +248,7 @@ export default function HomePage() {
                   </Text>
                 </View>
                 <Text style={[styles.greetingTitle, { color: colors.text }]}>
-                  Welcome, Scholar! 👋
+                  Welcome, {userName}! 👋
                 </Text>
                 <Text style={[styles.greetingDate, { color: colors.secondaryText }]}>
                   {new Date().toLocaleDateString(undefined, {
@@ -396,6 +426,63 @@ export default function HomePage() {
                 />
               )}
             />
+
+            {/* Custom Scheduled Sessions Section */}
+            {scheduledSessions.length > 0 && (
+              <View style={{ marginTop: 24 }}>
+                <View style={styles.sectionHeaderRow}>
+                  <View>
+                    <Text style={[styles.sectionHeading, { color: colors.text }]}>Custom Study Sessions</Text>
+                    <Text style={[styles.sectionSubheading, { color: colors.secondaryText }]}>
+                      Your scheduled goals & study blocks
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => router.push('/inside/create-session')}
+                    style={styles.seeAllButton}
+                  >
+                    <Text style={[styles.seeAllText, { color: colors.primary }]}>+ Add</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={[styles.activitiesCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+                  {scheduledSessions.map((s, index) => {
+                    const isLast = index === scheduledSessions.length - 1;
+                    return (
+                      <View
+                        key={s.id}
+                        style={[
+                          styles.activityRow,
+                          !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                        ]}
+                      >
+                        <View style={[styles.activityIconCircle, { backgroundColor: colors.surface }]}>
+                          <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                        </View>
+                        <View style={styles.activityInfo}>
+                          <Text style={[styles.activityTitle, { color: colors.text }]} numberOfLines={1}>
+                            {s.name}
+                          </Text>
+                          <Text style={[styles.activityMeta, { color: colors.secondaryText }]}>
+                            {s.subject} • {s.durationHours}h {s.durationMinutes}m • {s.mode}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={async () => {
+                            await StorageService.deleteSession(s.id);
+                            setScheduledSessions((prev) => prev.filter((item) => item.id !== s.id));
+                          }}
+                          style={{ padding: 6 }}
+                          accessibilityLabel="Delete session"
+                        >
+                          <Ionicons name="trash-outline" size={18} color={colors.secondaryText} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
 
             {/* Recent Activities Section */}
             <View style={[styles.sectionHeaderRow, { marginTop: 28 }]}>

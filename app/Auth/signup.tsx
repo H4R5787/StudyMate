@@ -14,8 +14,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'expo-router';
-import { auth } from '../../config/firebaseconfig';
+import { auth, isFirebaseConfigured } from '../../config/firebaseconfig';
 import { Colors } from '../../constants/theme';
+import { ValidationUtils } from '../../utils/validation';
+import { StorageService } from '../../services/storage';
 
 export default function Signup() {
   const router = useRouter();
@@ -34,10 +36,6 @@ export default function Signup() {
   const isDark = colorScheme === 'dark';
   const colors = isDark ? Colors.dark : Colors.light;
 
-  const validateEmail = (val: string): boolean => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
-  };
-
   const handleSignup = async () => {
     setError('');
     const cleanEmail = email.trim();
@@ -46,12 +44,13 @@ export default function Signup() {
       setError('Please enter your email address');
       return;
     }
-    if (!validateEmail(cleanEmail)) {
+    if (!ValidationUtils.validateEmail(cleanEmail)) {
       setError('Please enter a valid email address');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    const pwdCheck = ValidationUtils.validatePassword(password);
+    if (!pwdCheck.isValid) {
+      setError(pwdCheck.error || 'Password must be at least 6 characters');
       return;
     }
     if (password !== confirmPassword) {
@@ -60,22 +59,28 @@ export default function Signup() {
     }
 
     setLoading(true);
+
+    // If Firebase backend is in demo mode (default local credentials)
+    if (!isFirebaseConfigured) {
+      await StorageService.saveProfile({ email: cleanEmail });
+      setLoading(false);
+      router.replace('/Auth/form-ai');
+      return;
+    }
+
     try {
       await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      await StorageService.saveProfile({ email: cleanEmail });
       router.replace('/Auth/form-ai');
     } catch (err: any) {
-      console.warn('Firebase signup attempt:', err?.code || err?.message);
-      // Graceful bypass in development mode when backend config is dummy
-      if (err?.code === 'auth/invalid-api-key' || err?.code === 'auth/api-key-not-valid' || err?.code === 'auth/network-request-failed') {
-        router.replace('/Auth/form-ai');
-        return;
-      }
-
+      console.warn('Firebase signup error:', err?.code || err?.message);
       let message = 'Failed to create account. Please try again.';
       if (err?.code === 'auth/email-already-in-use') {
         message = 'An account with this email already exists. Try signing in.';
       } else if (err?.code === 'auth/weak-password') {
         message = 'Password is too weak. Include a mix of letters and numbers.';
+      } else if (err?.code === 'auth/network-request-failed') {
+        message = 'Network connection failed. Please check your internet connection.';
       } else if (err?.message) {
         message = err.message.replace(/^Firebase:\s*/i, '');
       }

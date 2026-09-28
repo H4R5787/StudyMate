@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { LineChart, BarChart } from 'react-native-chart-kit';
 import { Colors } from '../../constants/theme';
 import { AppHeader } from '../../components/AppHeader';
 import { BottomNav } from '../../components/BottomNav';
+import { StorageService } from '../../services/storage';
+import { ValidationUtils } from '../../utils/validation';
 
 interface SubjectStat {
   name: string;
@@ -27,6 +29,7 @@ interface SubjectStat {
 
 interface SessionRecord {
   id: string;
+  routeId?: string;
   subject: string;
   duration: string;
   date: string;
@@ -54,12 +57,30 @@ export default function ProgressPage() {
     { name: 'Biology', time: 18, progress: 0.3, color: '#ffb703', grade: 'B-' },
   ];
 
-  const sessionHistory: SessionRecord[] = [
-    { id: '1', subject: 'Mathematics', activityTitle: 'Algebra & Equations Quiz', duration: '45 mins', date: '2026-09-27' },
-    { id: '2', subject: 'Physics', activityTitle: 'Mechanics & Newton Laws', duration: '1h 30m', date: '2026-09-26' },
-    { id: '3', subject: 'Chemistry', activityTitle: 'Stoichiometry & Molarity', duration: '30 mins', date: '2026-09-25' },
-    { id: '4', subject: 'Biology', activityTitle: 'Cell Division & Mitosis', duration: '40 mins', date: '2026-09-24' },
+  const DEFAULT_HISTORY: SessionRecord[] = [
+    { id: '1', routeId: '1', subject: 'Mathematics', activityTitle: 'Algebra & Equations Quiz', duration: '45 mins', date: '2026-09-27' },
+    { id: '2', routeId: '2', subject: 'Physics', activityTitle: 'Mechanics & Newton Laws', duration: '1h 30m', date: '2026-09-26' },
+    { id: '3', routeId: '3', subject: 'Chemistry', activityTitle: 'Stoichiometry & Molarity', duration: '30 mins', date: '2026-09-25' },
+    { id: '4', routeId: '4', subject: 'Biology', activityTitle: 'Cell Division & Mitosis', duration: '40 mins', date: '2026-09-24' },
   ];
+
+  const [history, setHistory] = useState<SessionRecord[]>(DEFAULT_HISTORY);
+
+  useEffect(() => {
+    StorageService.getActivities().then((stored) => {
+      if (stored && stored.length > 0) {
+        const storedRecords: SessionRecord[] = stored.map((s) => ({
+          id: s.id,
+          routeId: s.routeId,
+          subject: s.subject,
+          duration: s.duration,
+          date: s.date || 'Today',
+          activityTitle: s.title,
+        }));
+        setHistory([...storedRecords, ...DEFAULT_HISTORY]);
+      }
+    });
+  }, []);
 
   const screenWidth = Dimensions.get('window').width;
   const chartWidth = Math.min(screenWidth - 64, 680);
@@ -273,12 +294,12 @@ export default function ProgressPage() {
             {/* Session History List */}
             <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border, marginTop: 12 }]}>
               <Text style={[styles.cardTitle, { color: colors.text }]}>Recent Completed Sessions</Text>
-              {sessionHistory.map((session, index) => {
-                const isLast = index === sessionHistory.length - 1;
+              {history.map((session, index) => {
+                const isLast = index === history.length - 1;
                 return (
                   <TouchableOpacity
                     key={session.id}
-                    onPress={() => router.push(`/inside/activity/${session.id}` as any)}
+                    onPress={() => router.push(`/inside/activity/${session.routeId || session.id}` as any)}
                     style={[
                       styles.sessionRow,
                       !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border },
@@ -300,7 +321,7 @@ export default function ProgressPage() {
 
                     <View style={styles.sessionRight}>
                       <Text style={[styles.sessionDate, { color: colors.secondaryText }]}>
-                        {new Date(session.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        {ValidationUtils.formatDateShort(session.date)}
                       </Text>
                       <Ionicons name="chevron-forward" size={16} color={colors.secondaryText} />
                     </View>
